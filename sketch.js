@@ -7,11 +7,8 @@ let birdWidth = 100;
 let birdHeight = 100;
 let margin;
 let spacingX, spacingY;
-
-let hand;
-let playing = false;
-
-let ramp = 0.1;
+let wirePlucks = [];
+let nextPluckTimes = [];
 
 let frameCounts = {
   idle1: 32,
@@ -26,7 +23,6 @@ let animations = {
   idle3: [],
   moving: []
 };
-
 
 let idleStateDistribution = {
   idle1: 0.5,
@@ -49,13 +45,36 @@ function preload() {
   }
 }
 
+class AnimationManager {
+  constructor(frameCounts, animations) {
+    this.frameCounts = frameCounts;
+    this.animations = animations;
+    this.currentState = 'idle1';
+    this.frameSpeed = 6;
+  }
+
+  getFrame(frameOffset) {
+    let frameSet = this.animations[this.currentState];
+    let frameCountLimit = this.frameCounts[this.currentState];
+    let frameIndex = (floor(frameCount / this.frameSpeed) + frameOffset) % frameCountLimit;
+    return frameSet[frameIndex];
+  }
+
+  setState(state) {
+    if (this.animations[state]) {
+      this.currentState = state;
+    }
+  }
+}
+
 class Bird {
   constructor(x, y, frameOffset, idleState) {
     this.position = createVector(x, y);
     this.velocity = createVector();
     this.acceleration = createVector();
     this.frameOffset = frameOffset;
-    this.idleState = idleState;
+    this.animation = new AnimationManager(frameCounts, animations);
+    this.animation.setState(idleState);
     this.motion = false;
   }
 
@@ -68,20 +87,19 @@ class Bird {
       this.velocity.add(this.acceleration);
       this.position.add(this.velocity);
       this.acceleration.mult(0);
+      this.animation.setState('moving');
 
       if (this.velocity.mag() < 0.2) {
         this.motion = false;
         this.velocity.set(0, 0);
+        this.animation.setState(assignIdleState());
       }
     }
   }
 
   display() {
-    let state = this.motion ? "moving" : this.idleState;
-    let frameSet = animations[state];
-    let frameCountLimit = frameCounts[state];
-    let frameIndex = (floor(frameCount / 6) + this.frameOffset) % frameCountLimit;
-    image(frameSet[frameIndex], this.position.x, this.position.y, birdWidth, birdHeight);
+    let frame = this.animation.getFrame(this.frameOffset);
+    image(frame, this.position.x, this.position.y, birdWidth, birdHeight);
   }
 }
 
@@ -110,28 +128,25 @@ function setup() {
       birds.push(new Bird(x, y, frameOffset, idleState));
     }
   }
-
-  hand = createVideo("assets/hand/hand.mp4");
-  hand.size(1280, 720);
-  hand.hide();
+  
+  // Initialize wire plucks and next pluck times arrays
+  for (let i = 0; i < numBirdsY; i++) {
+    wirePlucks[i] = { time: -1000, amplitude: 0 };
+    nextPluckTimes[i] = -1;
+  }
 }
 
 function draw() {
   background(0);
 
-  let img = hand.get();
-  push();
-  imageMode(CENTER);
-  
-  let handAspect = 1280 / 720;
-  let canvasAspect = width / height;
-  let scaleFactor = canvasAspect > handAspect ? height / 720 : width / 1280;
-
-  let vidWidth = 1280 * scaleFactor * 2;
-  let vidHeight = 720 * scaleFactor * 2;
-  image(img, width / 2, height / 2, vidWidth, vidHeight);
-  
-  pop();
+  // Check and trigger random plucks
+  for (let i = 0; i < numBirdsY; i++) {
+    if (nextPluckTimes[i] >= 0 && frameCount >= nextPluckTimes[i]) {
+      wirePlucks[i].time = frameCount;
+      wirePlucks[i].amplitude = random(0.5, 1);
+      nextPluckTimes[i] = frameCount + floor(random(30, 120)); // Next pluck in 0.5-2 seconds
+    }
+  }
 
   birds.forEach((bird) => {
     bird.update();
@@ -145,30 +160,27 @@ function drawWires() {
   for (let i = 0; i < numBirdsY; i++) {
     push();
     translate(0, margin + i * spacingY + birdHeight / 2.3);
-    noFill()
+    noFill();
     stroke(255);
     strokeWeight(height / 200);
 
-    let amplitude = (i + 1) * 2;
-    let frequency = 0.01 + i * 0.002;
+    let baseAmplitude = 20;
+    let decay = 0.95;
     
-    // if (i == 3) frequency *= 3;
-
     beginShape();
     for (let x = 0; x <= width; x += 5) {
       let progress = map(x, 0, width, 0, 1);
       let yOffset = 0;
       
-      if (playing) {
-        let wave = sin((x * frequency * i) + frameCount * ramp); 
-        let fade = sin(progress * PI);
-        yOffset = amplitude * wave * fade;
-        ramp+=0.0000005;
-        
-        if(ramp > 0.4) ramp = 0;
-
+      // Calculate pluck effect
+      let elapsed = frameCount - wirePlucks[i].time;
+      if (elapsed >= 0 && elapsed < 60) {
+        let pluckProgress = elapsed / 60;
+        let amplitude = baseAmplitude * wirePlucks[i].amplitude * (1 - pluckProgress) * pow(decay, elapsed);
+        let frequency = 0.01;
+        yOffset = amplitude * sin(x * frequency) * sin(progress * PI);
       }
-
+      
       vertex(x, yOffset);
     }
     
@@ -177,19 +189,14 @@ function drawWires() {
   }
 }
 
-
-
 function mousePressed() {
   birds.forEach((bird) => {
     bird.motion = true;
     bird.applyForce(createVector(random(-10, -5), random(-1, 1)));
   });
 
-  playing = !playing;
-  
-  if (playing) {
-    hand.play();
-  } else {
-    hand.pause();
+  // Schedule initial random plucks
+  for (let i = 0; i < numBirdsY; i++) {
+    nextPluckTimes[i] = frameCount + floor(random(0, 60)); // First pluck within 1 second
   }
 }
