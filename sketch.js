@@ -14,9 +14,9 @@ let playing = false;
 let ramp = 0.1;
 
 let frameCounts = {
-  idle1: 15,
-  idle2: 7,
-  idle3: 11,
+  idle1: 32,
+  idle2: 24,
+  idle3: 25,
   moving: 6
 };
 
@@ -36,7 +36,7 @@ let idleStateDistribution = {
 
 function preload() {
   for (let i = 0; i < frameCounts.idle1; i++) {
-    animations.idle1[i] = loadImage(`assets/idle/idle_${i}.png`);
+    animations.idle1[i] = loadImage(`assets/idle1/idle1_${i}.png`);
   }
   for (let i = 0; i < frameCounts.idle2; i++) {
     animations.idle2[i] = loadImage(`assets/idle2/idle2_${i}.png`);
@@ -45,7 +45,7 @@ function preload() {
     animations.idle3[i] = loadImage(`assets/idle3/idle3_${i}.png`);
   }
   for (let i = 0; i < frameCounts.moving; i++) {
-    animations.moving[i] = loadImage(`assets/outLeft/outLeft_${i}.png`);
+    animations.moving[i] = loadImage(`assets/outLeft1/outLeft1_${i}.png`);
   }
 }
 
