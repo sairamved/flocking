@@ -16,7 +16,7 @@ let globalFrameSpeed = 6;
 let stillnessToIdleProbability = 0.01;
 let idleToStillnessProbability = 0.05;
 
-let scootProbability = 0.1;
+let scootProbability = 0.001;
 let minScootDistance = 300;
 let maxScootDistance = 100;
 let scootSpeed = 0.5;
