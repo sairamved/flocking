@@ -10,13 +10,10 @@ let nextPluckTimes = [];
 let allBirdsGone = false;
 let allGoneTime = -1000;
 let lastMousePressTime = -1000;
-let returnDelay = 1500;
+let returnDelay = 300;
 let globalFrameSpeed = 6;
 
-//toggle between train data and mouse click reaction
-let reactToTrainData = false;
-
-let stillnessToIdleProbability = 0.005;
+let stillnessToIdleProbability = 0.01;
 let idleToStillnessProbability = 0.05;
 
 let scootProbability = 0.001;
@@ -28,6 +25,7 @@ let idle1Probability = 0.4;
 let idle2Probability = 0.3;
 let idle3Probability = 0.3;
 
+// Probabilities for idle1 variants when transitioning from idle1-stillness
 let idle1aProbability = 0.4;
 let idle1bProbability = 0.35;
 let idle1cProbability = 0.25;
@@ -72,21 +70,6 @@ let animations = {
   flying1: [],
   flyingBack1: []
 };
-
-// MTA train timing variables
-let timingsArray = [];
-const proxyUrl = 'https://api.allorigins.win/get?url=';
-const uptownUrls = [
-  encodeURIComponent('https://nyc-mta-realtime.fly.dev/?route_filter=D&station_name_filter=Grand'),
-  encodeURIComponent('https://nyc-mta-realtime.fly.dev/?route_filter=N&station_name_filter=Canal')
-];
-const downtownUrls = [
-  encodeURIComponent('https://nyc-mta-realtime.fly.dev/?route_filter=Q&station_name_filter=Dekalb'),
-  encodeURIComponent('https://nyc-mta-realtime.fly.dev/?route_filter=D&station_name_filter=Atlantic')
-];
-const uptownLabels = ['Uptown', 'Manhattan', 'Queens'];
-const downtownLabels = ['Downtown', 'Coney Island', 'Bay Ridge', 'Brooklyn'];
-const validTrains = ['D', 'B', 'N', 'Q'];
 
 function preload() {
   for (let i = 0; i < frameCounts.idle1; i++) {
@@ -324,7 +307,7 @@ class Bird {
             this.animation.setState(this.scootTarget < this.position.x ? 'scootingLeft' : 'scootingRight');
             this.scootSteps = 0;
             this.stepSize = (this.scootTarget - this.position.x) / this.totalScootSteps;
-            // console.log(`Bird at ${this.position.x} scooting to ${this.scootTarget}, stepSize: ${this.stepSize}`);
+            console.log(`Bird at ${this.position.x} scooting to ${this.scootTarget}, stepSize: ${this.stepSize}`);
           } else if (dist < maxScootDistance) {
             let direction = this.position.x < neighborX ? -1 : 1;
             this.scootTarget = this.position.x + direction * (maxScootDistance / 2);
@@ -332,7 +315,7 @@ class Bird {
             this.animation.setState(this.scootTarget < this.position.x ? 'scootingLeft' : 'scootingRight');
             this.scootSteps = 0;
             this.stepSize = (this.scootTarget - this.position.x) / this.totalScootSteps;
-            // console.log(`Bird at ${this.position.x} scooting to ${this.scootTarget}, stepSize: ${this.stepSize}`);
+            console.log(`Bird at ${this.position.x} scooting to ${this.scootTarget}, stepSize: ${this.stepSize}`);
           }
         }
       }
@@ -345,7 +328,7 @@ class Bird {
         if (this.scootSteps < this.totalScootSteps) {
           this.position.x += this.stepSize;
           this.scootSteps++;
-          // console.log(`Bird stepped to ${this.position.x}, step ${this.scootSteps}/${this.totalScootSteps}, frame ${frameIndex}`);
+          console.log(`Bird stepped to ${this.position.x}, step ${this.scootSteps}/${this.totalScootSteps}, frame ${frameIndex}`);
         }
       }
 
@@ -356,7 +339,7 @@ class Bird {
         this.scootSteps = 0;
         this.animation.setState(this.animation.baseIdleState);
         this.targetPosition.x = this.position.x;
-        // console.log(`Bird reached target at ${this.position.x}`);
+        console.log(`Bird reached target at ${this.position.x}`);
       }
     }
   }
@@ -437,72 +420,6 @@ function assignIdleState() {
   else return "idle3";
 }
 
-// Fetch MTA train timings
-async function fetchTimings(urls, direction, directionLabels) {
-  let tempTimings = [];
-
-  for (const targetUrl of urls) {
-    try {
-      const endpoint = `${proxyUrl}${targetUrl}&_=${new Date().getTime()}`;
-      const response = await fetch(endpoint);
-      const data = await response.json();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(data.contents, 'text/html');
-
-      let directionSection = Array.from(doc.querySelectorAll('.underline.font-bold'))
-        .find(section => {
-          const text = section.innerText.toLowerCase();
-          return directionLabels.some(label => text.includes(label.toLowerCase()));
-        });
-
-      if (!directionSection) {
-        console.warn(`No ${direction} section found for ${targetUrl}, using fallback`);
-        directionSection = doc.querySelector('.items-center.pt-6') || 
-                          doc.querySelector('.underline.font-bold');
-      }
-
-      if (!directionSection || !directionSection.parentElement.nextElementSibling) {
-        console.error(`No valid timing section found for ${targetUrl}`);
-        continue;
-      }
-
-      const items = directionSection.parentElement
-        .nextElementSibling.querySelectorAll('li.mx-3.p-2.sm\\:py-4.flex.justify-between.overflow-hidden.items-center');
-
-      if (items.length === 0) {
-        console.warn(`No timing items found for ${targetUrl}`);
-      }
-
-      items.forEach(item => {
-        const trainNameElement = item.querySelector('.rounded-full');
-        const trainName = trainNameElement ? trainNameElement.innerText.trim() : 
-                          targetUrl.includes('route_filter=Q') ? 'Q' : 
-                          targetUrl.includes('route_filter=D') ? 'D' : 
-                          targetUrl.includes('route_filter=N') ? 'N' : '';
-        
-        if (!validTrains.includes(trainName)) {
-          return;
-        }
-
-        const timing = item.querySelector('.font-bold')?.innerText.trim() || 'N/A';
-        tempTimings.push(timing);
-      });
-
-    } catch (error) {
-      console.error(`Error fetching data for ${targetUrl}:`, error);
-    }
-  }
-
-  return tempTimings;
-}
-
-async function updateAllTimings() {
-  const uptownTimings = await fetchTimings(uptownUrls, 'Uptown', uptownLabels);
-  const downtownTimings = await fetchTimings(downtownUrls, 'Downtown', downtownLabels);
-  timingsArray = [...uptownTimings, ...downtownTimings];
-  console.log('Updated Timings Array:', timingsArray);
-}
-
 function setup() {
   createCanvas(windowWidth, windowHeight);
   margin = width / 10;
@@ -526,17 +443,10 @@ function setup() {
     wirePlucks[i] = { time: -1000, amplitude: 0 };
     nextPluckTimes[i] = -1;
   }
-
-  // Initial fetch of train timings
-  updateAllTimings();
-  // Update every 60 seconds
-  setInterval(updateAllTimings, 60000);
 }
 
 function draw() {
   background(0);
-
-  drawWires();
 
   if (!allBirdsGone && birds.every(bird => bird.isOffScreen())) {
     allBirdsGone = true;
@@ -568,17 +478,12 @@ function draw() {
     }
   }
 
-  // Check for "2 min" only when all birds are back and idle or scooting
-  if (reactToTrainData && birds.every(bird => bird.arrived && !bird.motion) && timingsArray.includes('2 min')) {
-    triggerBirdFlight();
-  }
-
   birds.forEach((bird) => {
     bird.update();
     bird.display();
   });
 
-
+  drawWires();
 }
 
 function drawWires() {
@@ -615,12 +520,6 @@ function drawWires() {
 }
 
 function mousePressed() {
-  if (!reactToTrainData) {
-    triggerBirdFlight();
-  }
-}
-
-function triggerBirdFlight() {
   allBirdsGone = false;
   allGoneTime = -1000;
   lastMousePressTime = frameCount;
@@ -629,16 +528,13 @@ function triggerBirdFlight() {
   }
 
   birds.forEach(bird => {
-    // Reset scooting state even if mid-scoot
-    bird.scooting = false;
-    bird.scootTarget = null;
-    bird.scootSteps = 0;
-    bird.stepSize = 0;
-    bird.triggerTime = frameCount + floor(random(0, 150));
-    bird.returnTime = -1;
-    bird.motion = false;
-    bird.arrived = false;
-    bird.velocity.set(0, 0);
-    bird.applyForce(createVector(random(-20, -10), random(-5, 5)));
+    if (!bird.scooting) {
+      bird.triggerTime = frameCount + floor(random(0, 150));
+      bird.returnTime = -1;
+      bird.motion = false;
+      bird.arrived = false;
+      bird.velocity.set(0, 0);
+      bird.applyForce(createVector(random(-20, -10), random(-5, 5)));
+    }
   });
 }
