@@ -13,38 +13,48 @@ let lastMousePressTime = -1000;
 let returnDelay = 1500;
 let globalFrameSpeed = 6;
 
-//toggle between train data and mouse click reaction
-let reactToTrainData = false;
 
-let stillnessToIdleProbability = 0.005;
+let reactToTrainData = true;
+
+
+let idle1stillnessProbability = 0.2;
+let idle2stillnessProbability = 0.2;
+let idle3stillnessProbability = 0.2;
+let idle4stillnessProbability = 0.2;
+let idle5stillnessProbability = 0.2;
+
+
+let idle1stillnessToIdleProbability = 0.005;
+let idle2stillnessToIdleProbability = 0.005;
+let idle3stillnessToIdleProbability = 0.005;
+let idle4stillnessToIdleProbability = 0.003;
+let idle5stillnessToIdleProbability = 0.003;
+
+
 let idleToStillnessProbability = 0.05;
+
+
+let idle1TransitionProbability = 0.34;
+let idle2TransitionProbability = 0.33;
+let idle3TransitionProbability = 0.33;
 
 let scootProbability = 0.001;
 let minScootDistance = 300;
 let maxScootDistance = 100;
 let scootSpeed = 0.5;
 
-let idle1Probability = 0.4;
-let idle2Probability = 0.3;
-let idle3Probability = 0.3;
-
-let idle1aProbability = 0.4;
-let idle1bProbability = 0.35;
-let idle1cProbability = 0.25;
-
 let flyingOutSpeedRange = { min: 5, max: 10 };
 let flyingBackSpeedRange = { min: 5, max: 10 };
 
 let frameCounts = {
-  idle1: 33,
-  idle1stillness: 12,
-  idle1a: 36,
-  idle1b: 27,
-  idle1c: 21,
-  idle2: 44,
-  idle2stillness: 13,
-  idle3: 26,
-  idle3stillness: 6,
+  idle1: 11,
+  idle1stillness: 22,
+  idle2: 13,
+  idle2stillness: 9,
+  idle3: 16,
+  idle3stillness: 11,
+  idle4stillness: 14,
+  idle5stillness: 12,
   landing1: 9,
   outLeft1: 7,
   scooting1: 12,
@@ -57,13 +67,12 @@ let frameCounts = {
 let animations = {
   idle1: [],
   idle1stillness: [],
-  idle1a: [],
-  idle1b: [],
-  idle1c: [],
   idle2: [],
   idle2stillness: [],
   idle3: [],
   idle3stillness: [],
+  idle4stillness: [],
+  idle5stillness: [],
   landing1: [],
   outLeft1: [],
   scooting1: [],
@@ -95,15 +104,6 @@ function preload() {
   for (let i = 0; i < frameCounts.idle1stillness; i++) {
     animations.idle1stillness[i] = loadImage(`assets/idle1-stillness/idle1-stillness_${i}.png`);
   }
-  for (let i = 0; i < frameCounts.idle1a; i++) {
-    animations.idle1a[i] = loadImage(`assets/idle1a/idle1a_${i}.png`);
-  }
-  for (let i = 0; i < frameCounts.idle1b; i++) {
-    animations.idle1b[i] = loadImage(`assets/idle1b/idle1b_${i}.png`);
-  }
-  for (let i = 0; i < frameCounts.idle1c; i++) {
-    animations.idle1c[i] = loadImage(`assets/idle1c/idle1c_${i}.png`);
-  }
   for (let i = 0; i < frameCounts.idle2; i++) {
     animations.idle2[i] = loadImage(`assets/idle2/idle2_${i}.png`);
   }
@@ -115,6 +115,12 @@ function preload() {
   }
   for (let i = 0; i < frameCounts.idle3stillness; i++) {
     animations.idle3stillness[i] = loadImage(`assets/idle3-stillness/idle3-stillness_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.idle4stillness; i++) {
+    animations.idle4stillness[i] = loadImage(`assets/idle4-stillness/idle4-stillness_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.idle5stillness; i++) {
+    animations.idle5stillness[i] = loadImage(`assets/idle5-stillness/idle5-stillness_${i}.png`);
   }
   for (let i = 0; i < frameCounts.landing1; i++) {
     animations.landing1[i] = loadImage(`assets/landing1/landing1_${i}.png`);
@@ -145,7 +151,7 @@ class AnimationManager {
     this.animations = animations;
     this.currentState = 'idle1stillness';
     this.frameSpeed = globalFrameSpeed;
-    this.baseIdleState = 'idle1';
+    this.baseStillnessState = 'idle1stillness';  // Tracks the assigned stillness state
     this.outLeftStartFrame = -1;
     this.hasOutLeftPlayed = false;
     this.landingStartFrame = -1;
@@ -173,8 +179,8 @@ class AnimationManager {
         this.hasOutLeftPlayed = false;
       } else if (state === 'landing1') {
         this.landingStartFrame = frameCount;
-      } else if (state === 'idle1' || state === 'idle2' || state === 'idle3') {
-        this.baseIdleState = state;
+      } else if (state.includes('stillness')) {
+        this.baseStillnessState = state;
       }
     }
   }
@@ -186,27 +192,52 @@ class AnimationManager {
     if (frameIndex === 0 && this.lastCycleFrame !== frameCount) {
       this.lastCycleFrame = frameCount;
 
-      if (this.currentState.includes('stillness')) {
-        if (random() < stillnessToIdleProbability) {
-          if (this.baseIdleState === 'idle1') {
-            let rand = random();
-            if (rand < idle1aProbability) {
-              this.setState('idle1a');
-            } else if (rand < idle1aProbability + idle1bProbability) {
-              this.setState('idle1b');
-            } else {
-              this.setState('idle1c');
-            }
-          } else {
-            this.setState(this.baseIdleState);
-          }
+      let rand = random();
+      if (this.currentState === 'idle1stillness' && random() < idle1stillnessToIdleProbability) {
+        if (rand < idle1TransitionProbability) {
+          this.setState('idle1');
+        } else if (rand < idle1TransitionProbability + idle2TransitionProbability) {
+          this.setState('idle2');
+        } else {
+          this.setState('idle3');
         }
-      } else if (this.currentState === this.baseIdleState || 
-                 this.currentState === 'idle1a' || 
-                 this.currentState === 'idle1b' || 
-                 this.currentState === 'idle1c') {
+      } else if (this.currentState === 'idle2stillness' && random() < idle2stillnessToIdleProbability) {
+        if (rand < idle1TransitionProbability) {
+          this.setState('idle1');
+        } else if (rand < idle1TransitionProbability + idle2TransitionProbability) {
+          this.setState('idle2');
+        } else {
+          this.setState('idle3');
+        }
+      } else if (this.currentState === 'idle3stillness' && random() < idle3stillnessToIdleProbability) {
+        if (rand < idle1TransitionProbability) {
+          this.setState('idle1');
+        } else if (rand < idle1TransitionProbability + idle2TransitionProbability) {
+          this.setState('idle2');
+        } else {
+          this.setState('idle3');
+        }
+      } else if (this.currentState === 'idle4stillness' && random() < idle4stillnessToIdleProbability) {
+        if (rand < idle1TransitionProbability) {
+          this.setState('idle1');
+        } else if (rand < idle1TransitionProbability + idle2TransitionProbability) {
+          this.setState('idle2');
+        } else {
+          this.setState('idle3');
+        }
+      } else if (this.currentState === 'idle5stillness' && random() < idle5stillnessToIdleProbability) {
+        if (rand < idle1TransitionProbability) {
+          this.setState('idle1');
+        } else if (rand < idle1TransitionProbability + idle2TransitionProbability) {
+          this.setState('idle2');
+        } else {
+          this.setState('idle3');
+        }
+      } else if (this.currentState === 'idle1' || 
+                 this.currentState === 'idle2' || 
+                 this.currentState === 'idle3') {
         if (random() < idleToStillnessProbability) {
-          this.setState(this.baseIdleState + 'stillness');
+          this.setState(this.baseStillnessState);
         }
       }
     }
@@ -228,7 +259,7 @@ class AnimationManager {
       let framesElapsed = frameCount - this.landingStartFrame;
       let landingFrames = this.frameCounts.landing1 * this.frameSpeed;
       if (framesElapsed >= landingFrames) {
-        this.setState(this.baseIdleState + 'stillness');
+        this.setState(this.baseStillnessState);
         this.landingStartFrame = -1;
       }
     }
@@ -242,7 +273,7 @@ class AnimationManager {
 }
 
 class Bird {
-  constructor(x, y, frameOffset, idleState) {
+  constructor(x, y, frameOffset, stillnessState) {
     this.originalPosition = createVector(x, y);
     this.position = createVector(x, y);
     this.targetPosition = createVector(x, y);
@@ -250,8 +281,8 @@ class Bird {
     this.acceleration = createVector();
     this.frameOffset = frameOffset;
     this.animation = new AnimationManager(frameCounts, animations);
-    this.animation.setState(idleState + 'stillness');
-    this.animation.baseIdleState = idleState;
+    this.animation.setState(stillnessState);  // Start in assigned stillness state
+    this.animation.baseStillnessState = stillnessState;
     this.motion = false;
     this.triggerTime = -1;
     this.returnTime = -1;
@@ -324,7 +355,6 @@ class Bird {
             this.animation.setState(this.scootTarget < this.position.x ? 'scootingLeft' : 'scootingRight');
             this.scootSteps = 0;
             this.stepSize = (this.scootTarget - this.position.x) / this.totalScootSteps;
-            // console.log(`Bird at ${this.position.x} scooting to ${this.scootTarget}, stepSize: ${this.stepSize}`);
           } else if (dist < maxScootDistance) {
             let direction = this.position.x < neighborX ? -1 : 1;
             this.scootTarget = this.position.x + direction * (maxScootDistance / 2);
@@ -332,7 +362,6 @@ class Bird {
             this.animation.setState(this.scootTarget < this.position.x ? 'scootingLeft' : 'scootingRight');
             this.scootSteps = 0;
             this.stepSize = (this.scootTarget - this.position.x) / this.totalScootSteps;
-            // console.log(`Bird at ${this.position.x} scooting to ${this.scootTarget}, stepSize: ${this.stepSize}`);
           }
         }
       }
@@ -345,7 +374,6 @@ class Bird {
         if (this.scootSteps < this.totalScootSteps) {
           this.position.x += this.stepSize;
           this.scootSteps++;
-          // console.log(`Bird stepped to ${this.position.x}, step ${this.scootSteps}/${this.totalScootSteps}, frame ${frameIndex}`);
         }
       }
 
@@ -354,9 +382,8 @@ class Bird {
         this.scooting = false;
         this.scootTarget = null;
         this.scootSteps = 0;
-        this.animation.setState(this.animation.baseIdleState);
+        this.animation.setState(this.animation.baseStillnessState);
         this.targetPosition.x = this.position.x;
-        // console.log(`Bird reached target at ${this.position.x}`);
       }
     }
   }
@@ -403,7 +430,7 @@ class Bird {
         if (distance < 5 && this.animation.currentState !== 'landing1') {
           this.motion = false;
           this.velocity.set(0, 0);
-          this.animation.setState(this.animation.baseIdleState + 'stillness');
+          this.animation.setState(this.animation.baseStillnessState);
           this.arrived = true;
           this.triggerTime = -1;
           this.returnTime = -1;
@@ -430,11 +457,13 @@ class Bird {
   }
 }
 
-function assignIdleState() {
+function assignStillnessState() {
   let rand = random();
-  if (rand < idle1Probability) return "idle1";
-  else if (rand < idle1Probability + idle2Probability) return "idle2";
-  else return "idle3";
+  if (rand < idle1stillnessProbability) return "idle1stillness";
+  else if (rand < idle1stillnessProbability + idle2stillnessProbability) return "idle2stillness";
+  else if (rand < idle1stillnessProbability + idle2stillnessProbability + idle3stillnessProbability) return "idle3stillness";
+  else if (rand < idle1stillnessProbability + idle2stillnessProbability + idle3stillnessProbability + idle4stillnessProbability) return "idle4stillness";
+  else return "idle5stillness";
 }
 
 // Fetch MTA train timings
@@ -517,8 +546,8 @@ function setup() {
       let x = random(margin, width - margin);
       let y = margin + j * spacingY - birdHeight / 4;
       let frameOffset = floor(random(0, frameCounts.idle1));
-      let idleState = assignIdleState();
-      birds.push(new Bird(x, y, frameOffset, idleState));
+      let stillnessState = assignStillnessState();
+      birds.push(new Bird(x, y, frameOffset, stillnessState));
     }
   }
   
@@ -568,7 +597,6 @@ function draw() {
     }
   }
 
-  // Check for "2 min" only when all birds are back and idle or scooting
   if (reactToTrainData && birds.every(bird => bird.arrived && !bird.motion) && timingsArray.includes('2 min')) {
     triggerBirdFlight();
   }
@@ -577,8 +605,6 @@ function draw() {
     bird.update();
     bird.display();
   });
-
-
 }
 
 function drawWires() {
@@ -620,6 +646,13 @@ function mousePressed() {
   }
 }
 
+function keyPressed() {
+  if (key === 'T' || key === 't') {
+    reactToTrainData = !reactToTrainData;
+    console.log('reactToTrainData toggled to:', reactToTrainData);
+  }
+}
+
 function triggerBirdFlight() {
   allBirdsGone = false;
   allGoneTime = -1000;
@@ -629,7 +662,6 @@ function triggerBirdFlight() {
   }
 
   birds.forEach(bird => {
-    // Reset scooting state even if mid-scoot
     bird.scooting = false;
     bird.scootTarget = null;
     bird.scootSteps = 0;
