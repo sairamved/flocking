@@ -1,10 +1,10 @@
-let numBirdsTotal = 16;
+let numBirdsX = 4;
 let numBirdsY = 4;
 let birds = [];
 let birdWidth = 250;
 let birdHeight = 250;
 let margin;
-let spacingY;
+let spacingX, spacingY;
 let wirePlucks = [];
 let nextPluckTimes = [];
 let allBirdsGone = false;
@@ -13,7 +13,9 @@ let lastMousePressTime = -1000;
 let returnDelay = 1500;
 let globalFrameSpeed = 6;
 
+
 let reactToTrainData = true;
+
 
 let idle1stillnessProbability = 0.2;
 let idle2stillnessProbability = 0.2;
@@ -21,13 +23,16 @@ let idle3stillnessProbability = 0.2;
 let idle4stillnessProbability = 0.2;
 let idle5stillnessProbability = 0.2;
 
+
 let idle1stillnessToIdleProbability = 0.005;
 let idle2stillnessToIdleProbability = 0.005;
 let idle3stillnessToIdleProbability = 0.005;
 let idle4stillnessToIdleProbability = 0.003;
 let idle5stillnessToIdleProbability = 0.003;
 
+
 let idleToStillnessProbability = 0.05;
+
 
 let idle1TransitionProbability = 0.34;
 let idle2TransitionProbability = 0.33;
@@ -36,7 +41,7 @@ let idle3TransitionProbability = 0.33;
 let scootProbability = 0.001;
 let minScootDistance = 300;
 let maxScootDistance = 100;
-let scootHopDistance = 20;
+let scootSpeed = 0.5;
 
 let flyingOutSpeedRange = { min: 5, max: 10 };
 let flyingBackSpeedRange = { min: 5, max: 10 };
@@ -146,7 +151,7 @@ class AnimationManager {
     this.animations = animations;
     this.currentState = 'idle1stillness';
     this.frameSpeed = globalFrameSpeed;
-    this.baseStillnessState = 'idle1stillness';
+    this.baseStillnessState = 'idle1stillness';  // Tracks the assigned stillness state
     this.outLeftStartFrame = -1;
     this.hasOutLeftPlayed = false;
     this.landingStartFrame = -1;
@@ -276,7 +281,7 @@ class Bird {
     this.acceleration = createVector();
     this.frameOffset = frameOffset;
     this.animation = new AnimationManager(frameCounts, animations);
-    this.animation.setState(stillnessState);
+    this.animation.setState(stillnessState);  // Start in assigned stillness state
     this.animation.baseStillnessState = stillnessState;
     this.motion = false;
     this.triggerTime = -1;
@@ -288,10 +293,9 @@ class Bird {
     this.arrived = true;
     this.scooting = false;
     this.scootTarget = null;
-    this.scootStartFrame = 0;
-    this.hasHoppedFirst = false;
-    this.hasHoppedSecond = false;
-    this.wireIndex = Math.round((y - margin + birdHeight / 4) / spacingY); // Store initial wire index
+    this.scootSteps = 0;
+    this.totalScootSteps = 300;
+    this.stepSize = 0;
   }
 
   applyForce(force) {
@@ -314,46 +318,8 @@ class Bird {
   }
 
   generateNewTargetOnWire() {
-    let attempts = 0;
-    let maxAttempts = 50;
-    let newX;
-    // Use the stored wireIndex to determine the correct wire Y position
-    let targetY = margin + this.wireIndex * spacingY - birdHeight / 4;
-    
-    do {
-      newX = random(0, width - margin - birdWidth);
-      attempts++;
-    } while (this.isTooClose(newX, targetY) && attempts < maxAttempts);
-    
-    if (attempts >= maxAttempts) {
-      newX = this.findNearestAvailableSpot(targetY);
-    }
-    
-    this.targetPosition.x = newX;
-    this.targetPosition.y = targetY;
-  }
-
-  isTooClose(x, y) {
-    for (let bird of birds) {
-      if (bird !== this) {
-        let dist = Math.abs(x - bird.position.x);
-        if (dist < birdWidth * 0.75 && Math.abs(y - bird.position.y) < birdHeight / 2) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  findNearestAvailableSpot(y) {
-    let newX = 0;
-    while (newX < width - margin - birdWidth) {
-      if (!this.isTooClose(newX, y)) {
-        return newX;
-      }
-      newX += birdWidth / 4;
-    }
-    return 0;
+    this.targetPosition.x = random(margin, width - margin);
+    this.targetPosition.y = this.originalPosition.y;
   }
 
   findClosestNeighbor() {
@@ -387,17 +353,15 @@ class Bird {
             this.scootTarget = this.position.x + (neighborX - this.position.x) * 0.5;
             this.scooting = true;
             this.animation.setState(this.scootTarget < this.position.x ? 'scootingLeft' : 'scootingRight');
-            this.scootStartFrame = frameCount;
-            this.hasHoppedFirst = false;
-            this.hasHoppedSecond = false;
+            this.scootSteps = 0;
+            this.stepSize = (this.scootTarget - this.position.x) / this.totalScootSteps;
           } else if (dist < maxScootDistance) {
             let direction = this.position.x < neighborX ? -1 : 1;
             this.scootTarget = this.position.x + direction * (maxScootDistance / 2);
             this.scooting = true;
             this.animation.setState(this.scootTarget < this.position.x ? 'scootingLeft' : 'scootingRight');
-            this.scootStartFrame = frameCount;
-            this.hasHoppedFirst = false;
-            this.hasHoppedSecond = false;
+            this.scootSteps = 0;
+            this.stepSize = (this.scootTarget - this.position.x) / this.totalScootSteps;
           }
         }
       }
@@ -405,24 +369,21 @@ class Bird {
 
     if (this.scooting && this.scootTarget !== null) {
       let frameIndex = this.animation.getCurrentFrameIndex();
-      let direction = this.scootTarget < this.position.x ? -1 : 1;
 
-      if (frameIndex === 4 && !this.hasHoppedFirst) {
-        this.position.x += direction * scootHopDistance;
-        this.hasHoppedFirst = true;
+      if ((frameIndex >= 4 && frameIndex <= 6) || (frameIndex >= 8 && frameIndex <= 10)) {
+        if (this.scootSteps < this.totalScootSteps) {
+          this.position.x += this.stepSize;
+          this.scootSteps++;
+        }
       }
-      else if (frameIndex === 8 && !this.hasHoppedSecond) {
-        this.position.x += direction * scootHopDistance;
-        this.hasHoppedSecond = true;
-      }
-      else if (frameIndex === 0 && this.hasHoppedSecond) {
+
+      if (this.scootSteps >= this.totalScootSteps || abs(this.scootTarget - this.position.x) < abs(this.stepSize)) {
+        this.position.x = this.scootTarget;
         this.scooting = false;
         this.scootTarget = null;
-        this.hasHoppedFirst = false;
-        this.hasHoppedSecond = false;
+        this.scootSteps = 0;
         this.animation.setState(this.animation.baseStillnessState);
         this.targetPosition.x = this.position.x;
-        this.originalPosition.x = this.position.x; // Update original X after scooting
       }
     }
   }
@@ -474,7 +435,6 @@ class Bird {
           this.triggerTime = -1;
           this.returnTime = -1;
           this.position.set(this.targetPosition);
-          this.originalPosition.x = this.targetPosition.x; // Update original X after landing
         }
       }
 
@@ -506,6 +466,7 @@ function assignStillnessState() {
   else return "idle5stillness";
 }
 
+// Fetch MTA train timings
 async function fetchTimings(urls, direction, directionLabels) {
   let tempTimings = [];
 
@@ -575,31 +536,14 @@ function setup() {
   createCanvas(windowWidth, windowHeight);
   margin = width / 10;
 
+  let availableWidth = width - 2 * margin;
   let availableHeight = height - margin;
+  spacingX = availableWidth / numBirdsX;
   spacingY = availableHeight / numBirdsY;
 
-  let birdsPerWire = [1, 1, 1, 1];
-  let remainingBirds = numBirdsTotal - 4;
-  while (remainingBirds > 0) {
-    let wireIndex = floor(random(0, 4));
-    birdsPerWire[wireIndex]++;
-    remainingBirds--;
-  }
-
-  for (let j = 0; j < numBirdsY; j++) {
-    for (let i = 0; i < birdsPerWire[j]; i++) {
-      let x;
-      let attempts = 0;
-      let maxAttempts = 50;
-      do {
-        x = random(0, width - margin - birdWidth);
-        attempts++;
-      } while (birds.some(b => Math.abs(b.position.x - x) < birdWidth * 0.75 && b.position.y === margin + j * spacingY - birdHeight / 4) && attempts < maxAttempts);
-      
-      if (attempts >= maxAttempts) {
-        x = i * birdWidth;
-      }
-      
+  for (let i = 0; i < numBirdsX; i++) {
+    for (let j = 0; j < numBirdsY; j++) {
+      let x = random(margin, width - margin);
       let y = margin + j * spacingY - birdHeight / 4;
       let frameOffset = floor(random(0, frameCounts.idle1));
       let stillnessState = assignStillnessState();
@@ -612,7 +556,9 @@ function setup() {
     nextPluckTimes[i] = -1;
   }
 
+  // Initial fetch of train timings
   updateAllTimings();
+  // Update every 60 seconds
   setInterval(updateAllTimings, 60000);
 }
 
@@ -718,31 +664,13 @@ function triggerBirdFlight() {
   birds.forEach(bird => {
     bird.scooting = false;
     bird.scootTarget = null;
-    bird.hasHoppedFirst = false;
-    bird.hasHoppedSecond = false;
+    bird.scootSteps = 0;
+    bird.stepSize = 0;
     bird.triggerTime = frameCount + floor(random(0, 150));
     bird.returnTime = -1;
     bird.motion = false;
     bird.arrived = false;
     bird.velocity.set(0, 0);
     bird.applyForce(createVector(random(-20, -10), random(-5, 5)));
-  });
-}
-
-function windowResized() {
-  resizeCanvas(windowWidth, windowHeight);
-  margin = width / 10;
-  let availableHeight = height - margin;
-  spacingY = availableHeight / numBirdsY;
-
-  birds.forEach(bird => {
-    bird.wireIndex = constrain(bird.wireIndex, 0, numBirdsY - 1); // Ensure wireIndex stays valid
-    bird.originalPosition.y = margin + bird.wireIndex * spacingY - birdHeight / 4;
-    bird.position.y = bird.originalPosition.y;
-    bird.targetPosition.y = bird.originalPosition.y;
-    if (!bird.motion) {
-      bird.position.x = constrain(bird.position.x, 0, width - margin - birdWidth);
-      bird.targetPosition.x = constrain(bird.targetPosition.x, 0, width - margin - birdWidth);
-    }
   });
 }
