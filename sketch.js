@@ -1,19 +1,41 @@
 let numBirdsTotal = 16;
 let numBirdsY = 4;
 let birds = [];
-let birdWidth = 250;
-let birdHeight = 250;
+let referenceWindowWidth = 1800;
+let referenceBirdWidth = 250;
+let referenceBirdHeight = 250;
+let birdWidth;
+let birdHeight;
 let margin;
 let spacingY;
-let wirePlucks = [];
-let nextPluckTimes = [];
+let wireVibrations = [];
 let allBirdsGone = false;
 let allGoneTime = -1000;
 let lastMousePressTime = -1000;
 let returnDelay = 1500;
 let globalFrameSpeed = 6;
+let returnTransitionPercentage = 0.9;
+
+// Easter egg bird variables
+let easterEggSpawnFrequency = 3;
+let easterEggIdleDuration = 300;
+let easterEggCycleCount = 0;
+let easterEggBird = null;
+let hasSpawnedInCycle = false;
+
+// Vibration parameters
+let vibrationAmplitude = 4;
+let vibrationFrequency = 0.01;
+let vibrationSpeed = 1;
+
+// Undulation parameters
+let undulationAmplitude = 22;
+let undulationFrequency = 0.02;
+let undulationSpeed = 0.1;
 
 let reactToTrainData = true;
+
+let flying2Percentage = 0.2;
 
 let idle1stillnessProbability = 0.2;
 let idle2stillnessProbability = 0.2;
@@ -34,9 +56,9 @@ let idle2TransitionProbability = 0.33;
 let idle3TransitionProbability = 0.33;
 
 let scootProbability = 0.001;
-let minScootDistance = 300;
-let maxScootDistance = 100;
-let scootHopDistance = 20;
+let minScootDistance;
+let maxScootDistance;
+let scootHopDistance;
 
 let flyingOutSpeedRange = { min: 5, max: 10 };
 let flyingBackSpeedRange = { min: 5, max: 10 };
@@ -56,7 +78,21 @@ let frameCounts = {
   scootingLeft: 12,
   scootingRight: 12,
   flying1: 6,
-  flyingBack1: 6
+  flyingBack1: 6,
+  flying2: 9,
+  flyingBack2: 9,
+  saiIdle: 11,
+  saiLanding: 6,
+  saiFlying: 6,
+  saiFlyingBack: 6,
+  audreyIdle: 11,
+  audreyLanding: 6,
+  audreyFlying: 6,
+  audreyFlyingBack: 6,
+  bIdle: 11,
+  bLanding: 6,
+  bFlying: 6,
+  bFlyingBack: 6
 };
 
 let animations = {
@@ -74,7 +110,21 @@ let animations = {
   scootingLeft: [],
   scootingRight: [],
   flying1: [],
-  flyingBack1: []
+  flyingBack1: [],
+  flying2: [],
+  flyingBack2: [],
+  saiIdle: [],
+  saiLanding: [],
+  saiFlying: [],
+  saiFlyingBack: [],
+  audreyIdle: [],
+  audreyLanding: [],
+  audreyFlying: [],
+  audreyFlyingBack: [],
+  bIdle: [],
+  bLanding: [],
+  bFlying: [],
+  bFlyingBack: []
 };
 
 // MTA train timing variables
@@ -93,6 +143,7 @@ const downtownLabels = ['Downtown', 'Coney Island', 'Bay Ridge', 'Brooklyn'];
 const validTrains = ['D', 'B', 'N', 'Q'];
 
 function preload() {
+  // Regular bird animations
   for (let i = 0; i < frameCounts.idle1; i++) {
     animations.idle1[i] = loadImage(`assets/idle1/idle1_${i}.png`);
   }
@@ -138,10 +189,54 @@ function preload() {
   for (let i = 0; i < frameCounts.flyingBack1; i++) {
     animations.flyingBack1[i] = loadImage(`assets/flyingBack1/flyingBack1_${i}.png`);
   }
+  for (let i = 0; i < frameCounts.flying2; i++) {
+    animations.flying2[i] = loadImage(`assets/flying2/flying2_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.flyingBack2; i++) {
+    animations.flyingBack2[i] = loadImage(`assets/flyingBack2/flyingBack2_${i}.png`);
+  }
+
+  // Easter egg bird animations
+  for (let i = 0; i < frameCounts.saiIdle; i++) {
+    animations.saiIdle[i] = loadImage(`assets/easterEggBirds/sai/idle/saiIdle_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.saiLanding; i++) {
+    animations.saiLanding[i] = loadImage(`assets/easterEggBirds/sai/landing/saiLanding_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.saiFlying; i++) {
+    animations.saiFlying[i] = loadImage(`assets/easterEggBirds/sai/flying/saiFlying_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.saiFlyingBack; i++) {
+    animations.saiFlyingBack[i] = loadImage(`assets/easterEggBirds/sai/flyingBack/saiFlyingBack_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.audreyIdle; i++) {
+    animations.audreyIdle[i] = loadImage(`assets/easterEggBirds/audrey/idle/audreyIdle_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.audreyLanding; i++) {
+    animations.audreyLanding[i] = loadImage(`assets/easterEggBirds/audrey/landing/audreyLanding_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.audreyFlying; i++) {
+    animations.audreyFlying[i] = loadImage(`assets/easterEggBirds/audrey/flying/audreyFlying_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.audreyFlyingBack; i++) {
+    animations.audreyFlyingBack[i] = loadImage(`assets/easterEggBirds/audrey/flyingBack/audreyFlyingBack_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.bIdle; i++) {
+    animations.bIdle[i] = loadImage(`assets/easterEggBirds/b/idle/bIdle_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.bLanding; i++) {
+    animations.bLanding[i] = loadImage(`assets/easterEggBirds/b/landing/bLanding_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.bFlying; i++) {
+    animations.bFlying[i] = loadImage(`assets/easterEggBirds/b/flying/bFlying_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.bFlyingBack; i++) {
+    animations.bFlyingBack[i] = loadImage(`assets/easterEggBirds/b/flyingBack/bFlyingBack_${i}.png`);
+  }
 }
 
 class AnimationManager {
-  constructor(frameCounts, animations) {
+  constructor(frameCounts, animations, flyingType) {
     this.frameCounts = frameCounts;
     this.animations = animations;
     this.currentState = 'idle1stillness';
@@ -151,6 +246,7 @@ class AnimationManager {
     this.hasOutLeftPlayed = false;
     this.landingStartFrame = -1;
     this.lastCycleFrame = -1;
+    this.flyingType = flyingType;
   }
 
   getFrame(frameOffset) {
@@ -243,7 +339,7 @@ class AnimationManager {
       let framesElapsed = frameCount - this.outLeftStartFrame;
       let outLeftFrames = this.frameCounts.outLeft1 * this.frameSpeed;
       if (frameCount == this.outLeftStartFrame && !this.hasOutLeftPlayed) {
-        this.setState('flying1');
+        this.setState(`flying${this.flyingType}`);
         this.hasOutLeftPlayed = true;
       }
     }
@@ -267,15 +363,58 @@ class AnimationManager {
   }
 }
 
+class EasterEggAnimationManager {
+  constructor(frameCounts, animations, type) {
+    this.frameCounts = frameCounts;
+    this.animations = animations;
+    this.currentState = `${type}FlyingBack`;
+    this.frameSpeed = globalFrameSpeed;
+    this.landingStartFrame = -1;
+    this.type = type; // sai, audrey, or b
+  }
+
+  getFrame(frameOffset) {
+    let frameSet = this.animations[this.currentState];
+    let frameCountLimit = this.frameCounts[this.currentState];
+    let frameIndex = (floor(frameCount / this.frameSpeed) + frameOffset) % frameCountLimit;
+    return frameSet[frameIndex];
+  }
+
+  getCurrentFrameIndex() {
+    let frameCountLimit = this.frameCounts[this.currentState];
+    return floor(frameCount / this.frameSpeed) % frameCountLimit;
+  }
+
+  setState(state) {
+    if (this.animations[state]) {
+      this.currentState = state;
+      if (state === `${this.type}Landing`) {
+        this.landingStartFrame = frameCount;
+      }
+    }
+  }
+
+  updateLanding() {
+    if (this.currentState === `${this.type}Landing` && this.landingStartFrame >= 0) {
+      let framesElapsed = frameCount - this.landingStartFrame;
+      let landingFrames = this.frameCounts[`${this.type}Landing`] * this.frameSpeed;
+      if (framesElapsed >= landingFrames) {
+        this.setState(`${this.type}Idle`);
+        this.landingStartFrame = -1;
+      }
+    }
+  }
+}
+
 class Bird {
-  constructor(x, y, frameOffset, stillnessState) {
+  constructor(x, y, frameOffset, stillnessState, flyingType) {
     this.originalPosition = createVector(x, y);
     this.position = createVector(x, y);
     this.targetPosition = createVector(x, y);
     this.velocity = createVector();
     this.acceleration = createVector();
     this.frameOffset = frameOffset;
-    this.animation = new AnimationManager(frameCounts, animations);
+    this.animation = new AnimationManager(frameCounts, animations, flyingType);
     this.animation.setState(stillnessState);
     this.animation.baseStillnessState = stillnessState;
     this.motion = false;
@@ -291,7 +430,7 @@ class Bird {
     this.scootStartFrame = 0;
     this.hasHoppedFirst = false;
     this.hasHoppedSecond = false;
-    this.wireIndex = Math.round((y - margin + birdHeight / 4) / spacingY); // Store initial wire index
+    this.wireIndex = Math.round((y - margin + birdHeight / 4) / spacingY);
   }
 
   applyForce(force) {
@@ -317,7 +456,6 @@ class Bird {
     let attempts = 0;
     let maxAttempts = 50;
     let newX;
-    // Use the stored wireIndex to determine the correct wire Y position
     let targetY = margin + this.wireIndex * spacingY - birdHeight / 4;
     
     do {
@@ -405,7 +543,7 @@ class Bird {
 
     if (this.scooting && this.scootTarget !== null) {
       let frameIndex = this.animation.getCurrentFrameIndex();
-      let direction = this.scootTarget < this.position.x ? -1 : 1;
+      let direction = this.scootTarget < this.targetPosition.x ? -1 : 1;
 
       if (frameIndex === 4 && !this.hasHoppedFirst) {
         this.position.x += direction * scootHopDistance;
@@ -422,7 +560,7 @@ class Bird {
         this.hasHoppedSecond = false;
         this.animation.setState(this.animation.baseStillnessState);
         this.targetPosition.x = this.position.x;
-        this.originalPosition.x = this.position.x; // Update original X after scooting
+        this.originalPosition.x = this.position.x;
       }
     }
   }
@@ -460,7 +598,7 @@ class Bird {
         } else if (this.animation.currentState === 'landing1') {
           this.animation.updateLanding();
         } else if (this.animation.currentState !== 'landing1') {
-          this.animation.setState('flyingBack1');
+          this.animation.setState(`flyingBack${this.animation.flyingType}`);
         }
 
         let steering = this.seek(this.targetPosition);
@@ -474,7 +612,7 @@ class Bird {
           this.triggerTime = -1;
           this.returnTime = -1;
           this.position.set(this.targetPosition);
-          this.originalPosition.x = this.targetPosition.x; // Update original X after landing
+          this.originalPosition.x = this.targetPosition.x;
         }
       }
 
@@ -494,6 +632,113 @@ class Bird {
 
   isOffScreen() {
     return this.position.x < -birdWidth;
+  }
+}
+
+class EasterEggBird {
+  constructor(type, x, y, wireIndex) {
+    this.type = type; // sai, audrey, or b
+    this.position = createVector(-birdWidth, y); // Start off-screen left
+    this.targetPosition = createVector(x, y);
+    this.velocity = createVector();
+    this.acceleration = createVector();
+    this.frameOffset = floor(random(0, frameCounts[`${type}Idle`]));
+    this.animation = new EasterEggAnimationManager(frameCounts, animations, type);
+    this.state = 'flyingBack';
+    this.maxSpeed = random(5, 10);
+    this.maxForce = 0.5;
+    this.idleStartFrame = -1;
+    this.wireIndex = wireIndex;
+    this.triggered = false;
+  }
+
+  applyForce(force) {
+    this.acceleration.add(force);
+  }
+
+  seek(target) {
+    let desired = p5.Vector.sub(target, this.position);
+    let distance = desired.mag();
+    desired.normalize();
+    if (distance < 50) {
+      let m = map(distance, 0, 50, 0, this.maxSpeed);
+      desired.mult(m);
+    } else {
+      desired.mult(this.maxSpeed);
+    }
+    let steer = p5.Vector.sub(desired, this.velocity);
+    steer.limit(this.maxForce);
+    return steer;
+  }
+
+  isTooClose(x, y) {
+    for (let bird of birds) {
+      let dist = Math.abs(x - bird.position.x);
+      if (dist < birdWidth * 0.75 && Math.abs(y - bird.position.y) < birdHeight / 2) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  update() {
+    if (this.triggered) {
+      this.state = 'flying';
+      this.animation.setState(`${this.type}Flying`);
+      this.targetPosition.set(-birdWidth * 2, this.position.y);
+    }
+
+    if (this.state === 'flyingBack') {
+      let distance = p5.Vector.dist(this.position, this.targetPosition);
+      if (distance < 50) {
+        this.animation.setState(`${this.type}Landing`);
+        this.state = 'landing';
+      }
+      let steering = this.seek(this.targetPosition);
+      this.applyForce(steering);
+    } else if (this.state === 'landing') {
+      this.animation.updateLanding();
+      if (this.animation.currentState === `${this.type}Idle`) {
+        this.state = 'idle';
+        this.idleStartFrame = frameCount;
+        this.position.set(this.targetPosition);
+        this.velocity.set(0, 0);
+      } else {
+        let steering = this.seek(this.targetPosition);
+        this.applyForce(steering);
+      }
+    } else if (this.state === 'idle') {
+      if (frameCount >= this.idleStartFrame + easterEggIdleDuration) {
+        this.state = 'flying';
+        this.animation.setState(`${this.type}Flying`);
+        this.targetPosition.set(-birdWidth * 2, this.position.y);
+      }
+    } else if (this.state === 'flying') {
+      let steering = this.seek(this.targetPosition);
+      this.applyForce(steering);
+    }
+
+    this.velocity.add(this.acceleration);
+    this.position.add(this.velocity);
+    this.acceleration.mult(0);
+
+    if (this.isOffScreen() && this.state === 'flying') {
+      return true; // Signal to delete
+    }
+    return false;
+  }
+
+  display() {
+    let frame = this.animation.getFrame(this.frameOffset);
+    image(frame, this.position.x, this.position.y, birdWidth, birdHeight);
+  }
+
+  isOffScreen() {
+    return this.position.x < -birdWidth;
+  }
+
+  triggerFlight() {
+    this.triggered = true;
   }
 }
 
@@ -575,6 +820,16 @@ function setup() {
   createCanvas(windowWidth, windowHeight);
   margin = width / 10;
 
+  // Scale bird size based on window width
+  let scaleFactor = windowWidth / referenceWindowWidth;
+  birdWidth = max(referenceBirdWidth * 0.5, referenceBirdWidth * scaleFactor);
+  birdHeight = max(referenceBirdHeight * 0.5, referenceBirdHeight * scaleFactor);
+
+  // Scale scooting distances
+  minScootDistance = 300 * scaleFactor;
+  maxScootDistance = 100 * scaleFactor;
+  scootHopDistance = 20 * scaleFactor;
+
   let availableHeight = height - margin;
   spacingY = availableHeight / numBirdsY;
 
@@ -585,6 +840,11 @@ function setup() {
     birdsPerWire[wireIndex]++;
     remainingBirds--;
   }
+
+  // Assign flying types based on flying2Percentage
+  let totalBirds = birdsPerWire.reduce((sum, num) => sum + num, 0);
+  let flying2Count = Math.round((flying2Percentage) * totalBirds);
+  let flying2Assigned = 0;
 
   for (let j = 0; j < numBirdsY; j++) {
     for (let i = 0; i < birdsPerWire[j]; i++) {
@@ -603,13 +863,25 @@ function setup() {
       let y = margin + j * spacingY - birdHeight / 4;
       let frameOffset = floor(random(0, frameCounts.idle1));
       let stillnessState = assignStillnessState();
-      birds.push(new Bird(x, y, frameOffset, stillnessState));
+      let flyingType = flying2Assigned < flying2Count ? 2 : 1;
+      birds.push(new Bird(x, y, frameOffset, stillnessState, flyingType));
+      if (flyingType === 2) flying2Assigned++;
     }
   }
   
   for (let i = 0; i < numBirdsY; i++) {
-    wirePlucks[i] = { time: -1000, amplitude: 0 };
-    nextPluckTimes[i] = -1;
+    wireVibrations[i] = { 
+      amplitude: 0, 
+      frequency: 0, 
+      startTime: -1000,
+      lastVibrationTime: -1000,
+      baseAmplitude: 0,
+      pluckPhase: 0,
+      manglePoints: [],
+      elasticMultiplier: 0.1,
+      vibrationMultiplier: 1,
+      stopTime: -1000
+    };
   }
 
   updateAllTimings();
@@ -621,16 +893,31 @@ function draw() {
 
   drawWires();
 
+  // Handle regular birds
   if (!allBirdsGone && birds.every(bird => bird.isOffScreen())) {
     allBirdsGone = true;
     allGoneTime = frameCount;
-    console.log("All birds gone at frame:", frameCount);
+    easterEggCycleCount++; // Increment cycle count
+    console.log("All birds gone at frame:", frameCount, "Cycle count:", easterEggCycleCount);
+    for (let i = 0; i < numBirdsY; i++) {
+      wireVibrations[i].manglePoints = [
+        { x: random(width * 0.2, width * 0.4), offset: 0 },
+        { x: random(width * 0.4, width * 0.6), offset: 0 },
+        { x: random(width * 0.6, width * 0.8), offset: 0 }
+      ];
+    }
   }
 
-  if (birds.some(bird => bird.arrived && bird.triggerTime === -1)) {
-    for (let i = 0; i < numBirdsY; i++) {
-      wirePlucks[i].time = -1000;
-      nextPluckTimes[i] = -1;
+  // Check for birds landing to stop wire vibration
+  for (let i = 0; i < numBirdsY; i++) {
+    if (wireVibrations[i].amplitude > 0 && birds.some(bird => bird.wireIndex === i && bird.arrived && bird.triggerTime === -1)) {
+      wireVibrations[i].amplitude = 0;
+      wireVibrations[i].elasticMultiplier = 0.1;
+      wireVibrations[i].vibrationMultiplier = 1;
+      wireVibrations[i].stopTime = -1000;
+      wireVibrations[i].startTime = -1000;
+      wireVibrations[i].lastVibrationTime = -1000;
+      wireVibrations[i].manglePoints = [];
     }
   }
 
@@ -640,57 +927,143 @@ function draw() {
     lastMousePressTime = -1000;
   }
 
-  if (allBirdsGone && frameCount >= allGoneTime + 180 && !birds.some(bird => bird.arrived && bird.triggerTime === -1)) {
-    for (let i = 0; i < numBirdsY; i++) {
-      if (nextPluckTimes[i] >= 0 && frameCount >= nextPluckTimes[i]) {
-        wirePlucks[i].time = frameCount;
-        wirePlucks[i].amplitude = random(0.5, 1);
-        nextPluckTimes[i] = frameCount + floor(random(30, 120));
-        console.log(`Wire ${i} plucked at frame ${frameCount}, next at ${nextPluckTimes[i]}`);
+  // Easter egg bird spawning logic
+  if (easterEggCycleCount % easterEggSpawnFrequency === 0) {
+    // Eligible cycle for spawning
+    if (!easterEggBird && !hasSpawnedInCycle && birds.every(bird => bird.arrived && !bird.motion && !bird.scooting)) {
+      // Spawn a random easter egg bird
+      let types = ['sai', 'audrey', 'b'];
+      let type = types[floor(random(0, types.length))];
+      let wireIndex = floor(random(0, numBirdsY));
+      let y = margin + wireIndex * spacingY - birdHeight / 4;
+      let x;
+      let attempts = 0;
+      let maxAttempts = 50;
+      do {
+        x = random(0, width - margin - birdWidth);
+        attempts++;
+      } while (birds.some(b => Math.abs(b.position.x - x) < birdWidth * 0.75 && b.position.y === y) && attempts < maxAttempts);
+      if (attempts >= maxAttempts) {
+        x = birdWidth * floor(random(0, (width - margin - birdWidth) / birdWidth));
       }
+      easterEggBird = new EasterEggBird(type, x, y, wireIndex);
+      hasSpawnedInCycle = true; // Mark that we've spawned in this cycle
     }
+  } else {
+    // Reset spawn flag in non-eligible cycles
+    hasSpawnedInCycle = false;
   }
 
+  // Update easter egg bird
+  let shouldDeleteEasterEgg = false;
+  if (easterEggBird) {
+    shouldDeleteEasterEgg = easterEggBird.update();
+  }
+
+  // Trigger flight for regular and easter egg birds
   if (reactToTrainData && birds.every(bird => bird.arrived && !bird.motion) && timingsArray.includes('2 min')) {
     triggerBirdFlight();
   }
 
+  // Update and display regular birds
   birds.forEach((bird) => {
     bird.update();
     bird.display();
   });
+
+  // Display easter egg bird after regular birds to draw on top
+  if (easterEggBird) {
+    easterEggBird.display();
+    if (shouldDeleteEasterEgg) {
+      easterEggBird = null;
+    }
+  }
 }
 
 function drawWires() {
   for (let i = 0; i < numBirdsY; i++) {
-    push();
-    translate(0, margin + i * spacingY + birdHeight / 2.8);
-    noFill();
-    stroke(255);
-    strokeWeight(height / 200);
+    let baseY = margin + i * spacingY + birdHeight / 2.8;
+    let elapsed = frameCount - wireVibrations[i].startTime;
+    let transitionProgress = allBirdsGone ? min((frameCount - allGoneTime) / 60, 1) : 0;
+    let returnProgress = lastMousePressTime >= 0 && allBirdsGone ? 
+      constrain((frameCount - (lastMousePressTime + returnDelay * returnTransitionPercentage)) / (returnDelay * (1 - returnTransitionPercentage)), 0, 1) : 0;
 
-    let baseAmplitude = 50;
-    let decay = 0.93;
-    let duration = 90;
-    
-    beginShape();
-    for (let x = 0; x <= width; x += 5) {
+    drawSingleWire(baseY, i, elapsed, transitionProgress, returnProgress);
+  }
+}
+
+function drawSingleWire(y, i, elapsed, transitionProgress, returnProgress) {
+  push();
+  translate(0, y);
+  noFill();
+  stroke(255);
+  strokeWeight(height / 200);
+
+  beginShape();
+  for (let x = 0; x <= width; x += 5) {
+    let yOffset = 0;
+    if (wireVibrations[i].amplitude > 0) {
       let progress = map(x, 0, width, 0, 1);
-      let yOffset = 0;
-      
-      let elapsed = frameCount - wirePlucks[i].time;
-      if (elapsed >= 0 && elapsed < duration) {
-        let pluckProgress = elapsed / duration;
-        let amplitude = baseAmplitude * wirePlucks[i].amplitude * (1 - pluckProgress) * pow(decay, elapsed);
-        let frequency = 0.01;
-        yOffset = amplitude * sin(x * frequency) * sin(progress * PI);
+      let rampUpProgress = min(elapsed / 60, 1); // Ramp up over 1 second
+      let currentAmplitude = wireVibrations[i].amplitude * rampUpProgress;
+      let currentFrequency = lerp(vibrationFrequency * 0.5, wireVibrations[i].frequency, rampUpProgress);
+      let currentElasticMultiplier = wireVibrations[i].elasticMultiplier * rampUpProgress;
+
+      let vibration = sin(x * currentFrequency + frameCount * vibrationSpeed);
+      let elastic = sin(vibrationFrequency * elapsed + wireVibrations[i].pluckPhase) * (1 - progress) * progress * 4;
+      let baseEffect = vibration * wireVibrations[i].vibrationMultiplier + elastic * currentElasticMultiplier;
+
+      let mangleOffset = 0;
+      if (allBirdsGone && wireVibrations[i].manglePoints.length > 0) {
+        for (let point of wireVibrations[i].manglePoints) {
+          let dist = abs(x - point.x);
+          let curveStrength = exp(-pow(dist, 2) / (2 * pow(width * 0.15, 2))) * undulationAmplitude;
+          point.offset = sin(elapsed * undulationSpeed + point.x * undulationFrequency) * curveStrength;
+          mangleOffset += point.offset / 2;
+        }
       }
-      
-      vertex(x, yOffset);
+
+      // Blend between vibration and undulation
+      let effect = lerp(baseEffect, baseEffect + mangleOffset, transitionProgress);
+      if (returnProgress > 0) {
+        // Smoothly transition back to vibration, then ramp down
+        effect = lerp(baseEffect + mangleOffset, baseEffect, returnProgress);
+        let rampDownProgress = min(returnProgress, 1); // Ramp down over remaining time
+        currentAmplitude = lerp(currentAmplitude, currentAmplitude * 0.5, rampDownProgress);
+        currentFrequency = lerp(currentFrequency, currentFrequency * 0.75, rampDownProgress);
+        vibration = sin(x * currentFrequency + frameCount * vibrationSpeed);
+        elastic = sin(vibrationFrequency * elapsed + wireVibrations[i].pluckPhase) * (1 - progress) * progress * 4;
+        baseEffect = vibration * wireVibrations[i].vibrationMultiplier + elastic * currentElasticMultiplier;
+        effect = lerp(baseEffect + mangleOffset, baseEffect, returnProgress); // Ensure smooth blend
+      }
+      yOffset = currentAmplitude * effect;
     }
-    
-    endShape();
-    pop();
+    vertex(x, yOffset);
+  }
+  endShape();
+  pop();
+}
+
+function triggerVibration() {
+  for (let i = 0; i < numBirdsY; i++) {
+    let beatPattern = [0, 1, 0, 1];
+    let beatIndex = (frameCount + i * 1) % beatPattern.length;
+    let elapsed = frameCount - wireVibrations[i].startTime;
+
+    if (wireVibrations[i].startTime === -1000 || elapsed < 0) {
+      wireVibrations[i].baseAmplitude = beatPattern[beatIndex] === 1 ? random(0.5, 1) : random(1, 2);
+      wireVibrations[i].frequency = vibrationFrequency;
+      wireVibrations[i].startTime = frameCount;
+      wireVibrations[i].pluckPhase = random(0, TWO_PI);
+      wireVibrations[i].elasticMultiplier = 0.1;
+      wireVibrations[i].vibrationMultiplier = 1;
+    }
+
+    let rampUpProgress = min(elapsed / 60, 1); // Ramp up over 1 second
+    wireVibrations[i].amplitude = lerp(0, vibrationAmplitude, rampUpProgress);
+    wireVibrations[i].elasticMultiplier = lerp(0.1, 4, rampUpProgress);
+    wireVibrations[i].vibrationMultiplier = 1;
+    wireVibrations[i].lastVibrationTime = frameCount;
   }
 }
 
@@ -711,8 +1084,9 @@ function triggerBirdFlight() {
   allBirdsGone = false;
   allGoneTime = -1000;
   lastMousePressTime = frameCount;
+  triggerVibration();
   for (let i = 0; i < numBirdsY; i++) {
-    nextPluckTimes[i] = frameCount + floor(random(0, 60));
+    wireVibrations[i].stopTime = -1000;
   }
 
   birds.forEach(bird => {
@@ -727,6 +1101,10 @@ function triggerBirdFlight() {
     bird.velocity.set(0, 0);
     bird.applyForce(createVector(random(-20, -10), random(-5, 5)));
   });
+
+  if (easterEggBird) {
+    easterEggBird.triggerFlight();
+  }
 }
 
 function windowResized() {
@@ -735,14 +1113,44 @@ function windowResized() {
   let availableHeight = height - margin;
   spacingY = availableHeight / numBirdsY;
 
+  // Scale bird size based on new window width
+  let scaleFactor = windowWidth / referenceWindowWidth;
+  let oldBirdWidth = birdWidth;
+  birdWidth = max(referenceBirdWidth * 0.5, referenceBirdWidth * scaleFactor);
+  birdHeight = max(referenceBirdHeight * 0.5, referenceBirdHeight * scaleFactor);
+
+  // Scale scooting distances
+  minScootDistance = 300 * scaleFactor;
+  maxScootDistance = 100 * scaleFactor;
+  scootHopDistance = 20 * scaleFactor;
+
   birds.forEach(bird => {
-    bird.wireIndex = constrain(bird.wireIndex, 0, numBirdsY - 1); // Ensure wireIndex stays valid
+    bird.wireIndex = constrain(bird.wireIndex, 0, numBirdsY - 1);
     bird.originalPosition.y = margin + bird.wireIndex * spacingY - birdHeight / 4;
     bird.position.y = bird.originalPosition.y;
     bird.targetPosition.y = bird.originalPosition.y;
+
+    // Scale x positions proportionally
     if (!bird.motion) {
-      bird.position.x = constrain(bird.position.x, 0, width - margin - birdWidth);
-      bird.targetPosition.x = constrain(bird.targetPosition.x, 0, width - margin - birdWidth);
+      let xRatio = bird.position.x / (windowWidth - oldBirdWidth);
+      bird.position.x = xRatio * (windowWidth - birdWidth);
+      bird.targetPosition.x = xRatio * (windowWidth - birdWidth);
+      bird.position.x = constrain(bird.position.x, 0, windowWidth - margin - birdWidth);
+      bird.targetPosition.x = constrain(bird.targetPosition.x, 0, windowWidth - margin - birdWidth);
     }
   });
+
+  if (easterEggBird) {
+    easterEggBird.wireIndex = constrain(easterEggBird.wireIndex, 0, numBirdsY - 1);
+    let newY = margin + easterEggBird.wireIndex * spacingY - birdHeight / 4;
+    easterEggBird.position.y = newY;
+    easterEggBird.targetPosition.y = newY;
+    if (easterEggBird.state !== 'flying') {
+      let xRatio = easterEggBird.position.x / (windowWidth - oldBirdWidth);
+      easterEggBird.position.x = xRatio * (windowWidth - birdWidth);
+      easterEggBird.targetPosition.x = xRatio * (windowWidth - birdWidth);
+      easterEggBird.position.x = constrain(easterEggBird.position.x, 0, windowWidth - margin - birdWidth);
+      easterEggBird.targetPosition.x = constrain(easterEggBird.targetPosition.x, 0, windowWidth - margin - birdWidth);
+    }
+  }
 }
