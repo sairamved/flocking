@@ -18,7 +18,7 @@ let returnTransitionPercentage = 0.9;
 
 // Easter egg bird variables
 let easterEggSpawnFrequency = 3;
-let easterEggIdleDuration = 300;
+let easterEggIdleDuration = 1000;
 let easterEggCycleCount = 0;
 let easterEggBird = null;
 let hasSpawnedInCycle = false;
@@ -39,15 +39,23 @@ let flying2Percentage = 0.2;
 
 let idle1stillnessProbability = 0.2;
 let idle2stillnessProbability = 0.2;
-let idle3stillnessProbability = 0.2;
-let idle4stillnessProbability = 0.2;
-let idle5stillnessProbability = 0.2;
+let idle3stillnessProbability = 0.1;
+let idle4stillnessProbability = 0.1;
+let idle5stillnessProbability = 0.1;
+let idle6stillnessProbability = 0.0;
+let idle7stillnessProbability = 0.0;
+let idle8stillnessProbability = 0.2;
+let idle9stillnessProbability = 0.1;
 
 let idle1stillnessToIdleProbability = 0.005;
-let idle2stillnessToIdleProbability = 0.005;
+let idle2stillnessToIdleProbability = 0.025;
 let idle3stillnessToIdleProbability = 0.005;
 let idle4stillnessToIdleProbability = 0.003;
 let idle5stillnessToIdleProbability = 0.003;
+let idle6stillnessToIdleProbability = 0.003;
+let idle7stillnessToIdleProbability = 0.003;
+let idle8stillnessToIdleProbability = 0.003;
+let idle9stillnessToIdleProbability = 0.003;
 
 let idleToStillnessProbability = 0.05;
 
@@ -70,8 +78,17 @@ let frameCounts = {
   idle2stillness: 9,
   idle3: 16,
   idle3stillness: 11,
+  idle4: 18,
   idle4stillness: 14,
+  idle5: 25,
   idle5stillness: 12,
+  idle6: 20,
+  idle6stillness: 11,
+  idle7: 21,
+  idle7stillness: 17,
+  idle8: 14,
+  idle8stillness: 20,
+  idle9stillness: 15,
   landing1: 9,
   outLeft1: 7,
   scooting1: 12,
@@ -102,8 +119,17 @@ let animations = {
   idle2stillness: [],
   idle3: [],
   idle3stillness: [],
+  idle4: [],
   idle4stillness: [],
+  idle5: [],
   idle5stillness: [],
+  idle6: [],
+  idle6stillness: [],
+  idle7: [],
+  idle7stillness: [],
+  idle8: [],
+  idle8stillness: [],
+  idle9stillness: [],
   landing1: [],
   outLeft1: [],
   scooting1: [],
@@ -162,11 +188,38 @@ function preload() {
   for (let i = 0; i < frameCounts.idle3stillness; i++) {
     animations.idle3stillness[i] = loadImage(`assets/idle3-stillness/idle3-stillness_${i}.png`);
   }
+  for (let i = 0; i < frameCounts.idle4; i++) {
+    animations.idle4[i] = loadImage(`assets/idle4/idle4_${i}.png`);
+  }
   for (let i = 0; i < frameCounts.idle4stillness; i++) {
     animations.idle4stillness[i] = loadImage(`assets/idle4-stillness/idle4-stillness_${i}.png`);
   }
+  for (let i = 0; i < frameCounts.idle5; i++) {
+    animations.idle5[i] = loadImage(`assets/idle5/idle5_${i}.png`);
+  }
   for (let i = 0; i < frameCounts.idle5stillness; i++) {
     animations.idle5stillness[i] = loadImage(`assets/idle5-stillness/idle5-stillness_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.idle6; i++) {
+    animations.idle6[i] = loadImage(`assets/idle6/idle6_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.idle6stillness; i++) {
+    animations.idle6stillness[i] = loadImage(`assets/idle6-stillness/idle6-stillness_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.idle7; i++) {
+    animations.idle7[i] = loadImage(`assets/idle7/idle7_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.idle7stillness; i++) {
+    animations.idle7stillness[i] = loadImage(`assets/idle7-stillness/idle7-stillness_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.idle8; i++) {
+    animations.idle8[i] = loadImage(`assets/idle8/idle8_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.idle8stillness; i++) {
+    animations.idle8stillness[i] = loadImage(`assets/idle8-stillness/idle8-stillness_${i}.png`);
+  }
+  for (let i = 0; i < frameCounts.idle9stillness; i++) {
+    animations.idle9stillness[i] = loadImage(`assets/idle9-stillness/idle9-stillness_${i}.png`);
   }
   for (let i = 0; i < frameCounts.landing1; i++) {
     animations.landing1[i] = loadImage(`assets/landing1/landing1_${i}.png`);
@@ -324,9 +377,46 @@ class AnimationManager {
         } else {
           this.setState('idle3');
         }
+      } else if (this.currentState === 'idle6stillness' && random() < idle6stillnessToIdleProbability) {
+        if (rand < idle1TransitionProbability) {
+          this.setState('idle1');
+        } else if (rand < idle1TransitionProbability + idle2TransitionProbability) {
+          this.setState('idle2');
+        } else {
+          this.setState('idle3');
+        }
+      } else if (this.currentState === 'idle7stillness' && random() < idle7stillnessToIdleProbability) {
+        if (rand < idle1TransitionProbability) {
+          this.setState('idle1');
+        } else if (rand < idle1TransitionProbability + idle2TransitionProbability) {
+          this.setState('idle2');
+        } else {
+          this.setState('idle3');
+        }
+      } else if (this.currentState === 'idle8stillness' && random() < idle8stillnessToIdleProbability) {
+        if (rand < idle1TransitionProbability) {
+          this.setState('idle1');
+        } else if (rand < idle1TransitionProbability + idle2TransitionProbability) {
+          this.setState('idle2');
+        } else {
+          this.setState('idle3');
+        }
+      } else if (this.currentState === 'idle9stillness' && random() < idle9stillnessToIdleProbability) {
+        if (rand < idle1TransitionProbability) {
+          this.setState('idle1');
+        } else if (rand < idle1TransitionProbability + idle2TransitionProbability) {
+          this.setState('idle2');
+        } else {
+          this.setState('idle3');
+        }
       } else if (this.currentState === 'idle1' || 
                  this.currentState === 'idle2' || 
-                 this.currentState === 'idle3') {
+                 this.currentState === 'idle3' ||
+                 this.currentState === 'idle4' ||
+                 this.currentState === 'idle5' ||
+                 this.currentState === 'idle6' ||
+                 this.currentState === 'idle7' ||
+                 this.currentState === 'idle8') {
         if (random() < idleToStillnessProbability) {
           this.setState(this.baseStillnessState);
         }
@@ -748,7 +838,11 @@ function assignStillnessState() {
   else if (rand < idle1stillnessProbability + idle2stillnessProbability) return "idle2stillness";
   else if (rand < idle1stillnessProbability + idle2stillnessProbability + idle3stillnessProbability) return "idle3stillness";
   else if (rand < idle1stillnessProbability + idle2stillnessProbability + idle3stillnessProbability + idle4stillnessProbability) return "idle4stillness";
-  else return "idle5stillness";
+  else if (rand < idle1stillnessProbability + idle2stillnessProbability + idle3stillnessProbability + idle4stillnessProbability + idle5stillnessProbability) return "idle5stillness";
+  else if (rand < idle1stillnessProbability + idle2stillnessProbability + idle3stillnessProbability + idle4stillnessProbability + idle5stillnessProbability + idle6stillnessProbability) return "idle6stillness";
+  else if (rand < idle1stillnessProbability + idle2stillnessProbability + idle3stillnessProbability + idle4stillnessProbability + idle5stillnessProbability + idle6stillnessProbability + idle7stillnessProbability) return "idle7stillness";
+  else if (rand < idle1stillnessProbability + idle2stillnessProbability + idle3stillnessProbability + idle4stillnessProbability + idle5stillnessProbability + idle6stillnessProbability + idle7stillnessProbability + idle8stillnessProbability) return "idle8stillness";
+  else return "idle9stillness";
 }
 
 async function fetchTimings(urls, direction, directionLabels) {
