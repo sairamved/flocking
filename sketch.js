@@ -155,18 +155,23 @@ let animations = {
 
 // MTA train timing variables
 let timingsArray = [];
-const proxyUrl = 'https://api.allorigins.win/get?url=';
-const uptownUrls = [
-  encodeURIComponent('https://nyc-mta-realtime.fly.dev/?route_filter=D&station_name_filter=Grand'),
-  encodeURIComponent('https://nyc-mta-realtime.fly.dev/?route_filter=N&station_name_filter=Canal')
-];
-const downtownUrls = [
-  encodeURIComponent('https://nyc-mta-realtime.fly.dev/?route_filter=Q&station_name_filter=Dekalb'),
-  encodeURIComponent('https://nyc-mta-realtime.fly.dev/?route_filter=D&station_name_filter=Atlantic')
-];
-const uptownLabels = ['Uptown', 'Manhattan', 'Queens'];
-const downtownLabels = ['Downtown', 'Coney Island', 'Bay Ridge', 'Brooklyn'];
-const validTrains = ['D', 'B', 'N', 'Q'];
+let allTrainETAs = [];
+const APIS = {
+  grandSt: 'https://goodservice.io/api/stops/D22',
+  canalSt: 'https://goodservice.io/api/stops/Q01',
+  dekalbAv: 'https://goodservice.io/api/stops/R30',
+  atlanticAv: 'https://goodservice.io/api/stops/R31'
+};
+
+const trainTriggerWindows = {
+  D_north: { min: 185, max: 200 }, // D uptown (to Grand St)
+  D_south: { min: 315, max: 330 }, // D downtown (to Atlantic Av)
+  Q_north: { min: 300, max: 315 }, // Q uptown (to Canal St)
+  Q_south: { min: 225, max: 240 }, // Q downtown (to Dekalb Av)
+  N_north: { min: 240, max: 255 }, // N uptown (to Canal St)
+  N_south: { min: 360, max: 375 }, // N downtown (to Atlantic Av)
+  B_south: { min: 200, max: 210 }  // B downtown (to Dekalb Av)
+};
 
 function preload() {
   // Regular bird animations
@@ -409,14 +414,14 @@ class AnimationManager {
         } else {
           this.setState('idle3');
         }
-      } else if (this.currentState === 'idle1' || 
-                 this.currentState === 'idle2' || 
-                 this.currentState === 'idle3' ||
-                 this.currentState === 'idle4' ||
-                 this.currentState === 'idle5' ||
-                 this.currentState === 'idle6' ||
-                 this.currentState === 'idle7' ||
-                 this.currentState === 'idle8') {
+      } else if (this.currentState === 'idle1' ||
+        this.currentState === 'idle2' ||
+        this.currentState === 'idle3' ||
+        this.currentState === 'idle4' ||
+        this.currentState === 'idle5' ||
+        this.currentState === 'idle6' ||
+        this.currentState === 'idle7' ||
+        this.currentState === 'idle8') {
         if (random() < idleToStillnessProbability) {
           this.setState(this.baseStillnessState);
         }
@@ -425,13 +430,9 @@ class AnimationManager {
   }
 
   updateFlight() {
-    if (this.currentState === 'outLeft1' && this.outLeftStartFrame >= 0) {
-      let framesElapsed = frameCount - this.outLeftStartFrame;
-      let outLeftFrames = this.frameCounts.outLeft1 * this.frameSpeed;
-      if (frameCount == this.outLeftStartFrame && !this.hasOutLeftPlayed) {
-        this.setState(`flying${this.flyingType}`);
-        this.hasOutLeftPlayed = true;
-      }
+    // Ensure flying animation is active
+    if (this.currentState !== `flying${this.flyingType}`) {
+      this.setState(`flying${this.flyingType}`);
     }
   }
 
@@ -547,16 +548,16 @@ class Bird {
     let maxAttempts = 50;
     let newX;
     let targetY = margin + this.wireIndex * spacingY - birdHeight / 4;
-    
+
     do {
       newX = random(0, width - margin - birdWidth);
       attempts++;
     } while (this.isTooClose(newX, targetY) && attempts < maxAttempts);
-    
+
     if (attempts >= maxAttempts) {
       newX = this.findNearestAvailableSpot(targetY);
     }
-    
+
     this.targetPosition.x = newX;
     this.targetPosition.y = targetY;
   }
@@ -662,15 +663,17 @@ class Bird {
       this.scooting = false;
       this.scootTarget = null;
       this.animation.resetFlight();
-      this.animation.setState('outLeft1');
+      this.animation.setState(`flying${this.animation.flyingType}`); // Start flying1 or flying2
       this.currentMaxSpeed = this.maxOutSpeed;
+      // Maintain velocity set in triggerBirdFlight
+      if (this.velocity.mag() === 0) {
+        this.velocity.set(random(-this.maxOutSpeed, -this.maxOutSpeed / 2), random(-2, 2));
+      }
     }
 
-    if (!this.scooting && lastMousePressTime >= 0 && frameCount >= lastMousePressTime + returnDelay && this.triggerTime !== -1) {
-      if (this.returnTime === -1) {
-        this.returnTime = frameCount + floor(random(0, 60));
-        this.generateNewTargetOnWire();
-      }
+    if (!this.scooting && lastMousePressTime >= 0 && frameCount >= lastMousePressTime + returnDelay && this.triggerTime !== -1 && this.returnTime === -1) {
+      this.returnTime = frameCount + floor(random(0, 60));
+      this.generateNewTargetOnWire();
     }
 
     if (this.motion) {
@@ -679,7 +682,14 @@ class Bird {
       this.acceleration.mult(0);
 
       if (this.returnTime === -1) {
-        this.animation.updateFlight();
+        // Ensure flying animation during flight phase
+        if (this.animation.currentState !== `flying${this.animation.flyingType}`) {
+          this.animation.setState(`flying${this.animation.flyingType}`);
+        }
+        // Maintain leftward movement until off-screen
+        if (this.position.x > -birdWidth) {
+          this.velocity.x = constrain(this.velocity.x, -this.maxOutSpeed, -this.maxOutSpeed / 2);
+        }
       } else if (frameCount >= this.returnTime) {
         this.currentMaxSpeed = this.maxBackSpeed;
         let distance = p5.Vector.dist(this.position, this.targetPosition);
@@ -706,8 +716,8 @@ class Bird {
         }
       }
 
-      if (this.velocity.mag() < 0.2 && this.returnTime === -1) {
-        this.velocity.set(0, 0);
+      if (this.velocity.mag() < 0.2 && this.returnTime === -1 && this.position.x > -birdWidth) {
+        this.velocity.set(random(-this.maxOutSpeed, -this.maxOutSpeed / 2), random(-2, 2));
       }
     } else {
       this.updateScooting();
@@ -845,69 +855,121 @@ function assignStillnessState() {
   else return "idle9stillness";
 }
 
-async function fetchTimings(urls, direction, directionLabels) {
-  let tempTimings = [];
-
-  for (const targetUrl of urls) {
-    try {
-      const endpoint = `${proxyUrl}${targetUrl}&_=${new Date().getTime()}`;
-      const response = await fetch(endpoint);
-      const data = await response.json();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(data.contents, 'text/html');
-
-      let directionSection = Array.from(doc.querySelectorAll('.underline.font-bold'))
-        .find(section => {
-          const text = section.innerText.toLowerCase();
-          return directionLabels.some(label => text.includes(label.toLowerCase()));
-        });
-
-      if (!directionSection) {
-        console.warn(`No ${direction} section found for ${targetUrl}, using fallback`);
-        directionSection = doc.querySelector('.items-center.pt-6') || 
-                          doc.querySelector('.underline.font-bold');
-      }
-
-      if (!directionSection || !directionSection.parentElement.nextElementSibling) {
-        console.error(`No valid timing section found for ${targetUrl}`);
-        continue;
-      }
-
-      const items = directionSection.parentElement
-        .nextElementSibling.querySelectorAll('li.mx-3.p-2.sm\\:py-4.flex.justify-between.overflow-hidden.items-center');
-
-      if (items.length === 0) {
-        console.warn(`No timing items found for ${targetUrl}`);
-      }
-
-      items.forEach(item => {
-        const trainNameElement = item.querySelector('.rounded-full');
-        const trainName = trainNameElement ? trainNameElement.innerText.trim() : 
-                          targetUrl.includes('route_filter=Q') ? 'Q' : 
-                          targetUrl.includes('route_filter=D') ? 'D' : 
-                          targetUrl.includes('route_filter=N') ? 'N' : '';
-        
-        if (!validTrains.includes(trainName)) {
-          return;
-        }
-
-        const timing = item.querySelector('.font-bold')?.innerText.trim() || 'N/A';
-        tempTimings.push(timing);
-      });
-
-    } catch (error) {
-      console.error(`Error fetching data for ${targetUrl}:`, error);
-    }
+// Function to format time difference
+function formatTimeDiff(seconds) {
+  if (seconds < 0) {
+    return 'Departed';
+  } else if (seconds < 60) {
+    return `${Math.floor(seconds)}s`;
+  } else {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    return `${minutes}m ${remainingSeconds}s`;
   }
-
-  return tempTimings;
 }
 
+// Function to get station name from stop ID
+function getStationName(stopId) {
+  switch (stopId) {
+    case 'D03': return 'Rockefeller Ctr';
+    case 'D43': return 'Coney Island';
+    default: return stopId;
+  }
+}
+
+// Process trains data
+function processTrains(trains, stationName, direction) {
+  const currentTime = Math.floor(Date.now() / 1000);
+  const trainData = [];
+  const logData = [];
+
+  trains.forEach(train => {
+    if (train.estimated_current_stop_arrival_time) {
+      const etaSeconds = train.estimated_current_stop_arrival_time - currentTime;
+      const etaFormatted = formatTimeDiff(etaSeconds);
+      // Collect data for logging only if ETA <= 10 minutes
+      if (etaSeconds <= 600) {
+        logData.push({
+          route: train.route_id,
+          direction,
+          station: stationName,
+          eta: etaFormatted
+        });
+      }
+      // Collect full data for allTrainETAs
+      trainData.push({
+        id: train.id,
+        station: stationName,
+        direction,
+        route: train.route_id,
+        destination: getStationName(train.destination_stop),
+        etaSeconds,
+        etaFormatted,
+        fullData: train
+      });
+    }
+  });
+
+  return { trainData, logData };
+}
+
+// Fetch and update all train timings
 async function updateAllTimings() {
-  const uptownTimings = await fetchTimings(uptownUrls, 'Uptown', uptownLabels);
-  const downtownTimings = await fetchTimings(downtownUrls, 'Downtown', downtownLabels);
-  timingsArray = [...uptownTimings, ...downtownTimings];
-  console.log('Updated Timings Array:', timingsArray);
+  try {
+    allTrainETAs = [];
+    const logData = [];
+
+    // Fetch Grand St (northbound only)
+    const grandStResponse = await fetch(APIS.grandSt);
+    const grandStData = await grandStResponse.json();
+    if (grandStData.upcoming_trips && grandStData.upcoming_trips.north) {
+      const { trainData, logData: grandLog } = processTrains(grandStData.upcoming_trips.north, 'Grand St', 'north');
+      allTrainETAs.push(...trainData);
+      logData.push(...grandLog);
+    }
+
+    // Fetch Canal St (northbound only)
+    const canalStResponse = await fetch(APIS.canalSt);
+    const canalStData = await canalStResponse.json();
+    if (canalStData.upcoming_trips && canalStData.upcoming_trips.north) {
+      const { trainData, logData: canalLog } = processTrains(canalStData.upcoming_trips.north, 'Canal St', 'north');
+      allTrainETAs.push(...trainData);
+      logData.push(...canalLog);
+    }
+
+    // Fetch Dekalb Av (B/D/Q southbound only)
+    const dekalbAvResponse = await fetch(APIS.dekalbAv);
+    const dekalbAvData = await dekalbAvResponse.json();
+    if (dekalbAvData.upcoming_trips && dekalbAvData.upcoming_trips.south) {
+      const filteredTrains = dekalbAvData.upcoming_trips.south.filter(train =>
+        ['B', 'D', 'Q'].includes(train.route_id)
+      );
+      const { trainData, logData: dekalbLog } = processTrains(filteredTrains, 'Dekalb Av', 'south');
+      allTrainETAs.push(...trainData);
+      logData.push(...dekalbLog);
+    }
+
+    // Fetch Atlantic Av (D/N southbound only)
+    const atlanticAvResponse = await fetch(APIS.atlanticAv);
+    const atlanticAvData = await atlanticAvResponse.json();
+    if (atlanticAvData.upcoming_trips && atlanticAvData.upcoming_trips.south) {
+      const filteredTrains = atlanticAvData.upcoming_trips.south.filter(train =>
+        ['D', 'N'].includes(train.route_id)
+      );
+      const { trainData, logData: atlanticLog } = processTrains(filteredTrains, 'Atlantic Av', 'south');
+      allTrainETAs.push(...trainData);
+      logData.push(...atlanticLog);
+    }
+
+    // Sort allTrainETAs by ETA
+    allTrainETAs.sort((a, b) => a.etaSeconds - b.etaSeconds);
+
+    // Log all train data as a single object
+    console.log({ trains: logData });
+
+  } catch (error) {
+    console.error('Error fetching data:', error);
+  }
 }
 
 function setup() {
@@ -949,11 +1011,11 @@ function setup() {
         x = random(0, width - margin - birdWidth);
         attempts++;
       } while (birds.some(b => Math.abs(b.position.x - x) < birdWidth * 0.75 && b.position.y === margin + j * spacingY - birdHeight / 4) && attempts < maxAttempts);
-      
+
       if (attempts >= maxAttempts) {
         x = i * birdWidth;
       }
-      
+
       let y = margin + j * spacingY - birdHeight / 4;
       let frameOffset = floor(random(0, frameCounts.idle1));
       let stillnessState = assignStillnessState();
@@ -962,11 +1024,11 @@ function setup() {
       if (flyingType === 2) flying2Assigned++;
     }
   }
-  
+
   for (let i = 0; i < numBirdsY; i++) {
-    wireVibrations[i] = { 
-      amplitude: 0, 
-      frequency: 0, 
+    wireVibrations[i] = {
+      amplitude: 0,
+      frequency: 0,
       startTime: -1000,
       lastVibrationTime: -1000,
       baseAmplitude: 0,
@@ -979,7 +1041,7 @@ function setup() {
   }
 
   updateAllTimings();
-  setInterval(updateAllTimings, 60000);
+  setInterval(updateAllTimings, 10000);
 }
 
 function draw() {
@@ -1055,8 +1117,17 @@ function draw() {
   }
 
   // Trigger flight for regular and easter egg birds
-  if (reactToTrainData && birds.every(bird => bird.arrived && !bird.motion) && timingsArray.includes('2 min')) {
-    triggerBirdFlight();
+  let lastTriggerTime = -1000;
+  if (reactToTrainData && frameCount - lastTriggerTime > 30 && birds.some(bird => bird.arrived && !bird.motion)) {
+    const triggeringTrain = allTrainETAs.find(train => {
+      const window = trainTriggerWindows[`${train.route}_${train.direction}`];
+      return window && train.etaSeconds <= window.max && train.etaSeconds > window.min;
+    });
+    if (triggeringTrain) {
+      console.log(`Triggered to ${triggeringTrain.route} ${triggeringTrain.direction} ${triggeringTrain.station} ${triggeringTrain.etaFormatted}`);
+      triggerBirdFlight();
+      lastTriggerTime = frameCount;
+    }
   }
 
   // Update and display regular birds
@@ -1079,7 +1150,7 @@ function drawWires() {
     let baseY = margin + i * spacingY + birdHeight / 2.8;
     let elapsed = frameCount - wireVibrations[i].startTime;
     let transitionProgress = allBirdsGone ? min((frameCount - allGoneTime) / 60, 1) : 0;
-    let returnProgress = lastMousePressTime >= 0 && allBirdsGone ? 
+    let returnProgress = lastMousePressTime >= 0 && allBirdsGone ?
       constrain((frameCount - (lastMousePressTime + returnDelay * returnTransitionPercentage)) / (returnDelay * (1 - returnTransitionPercentage)), 0, 1) : 0;
 
     drawSingleWire(baseY, i, elapsed, transitionProgress, returnProgress);
@@ -1190,10 +1261,11 @@ function triggerBirdFlight() {
     bird.hasHoppedSecond = false;
     bird.triggerTime = frameCount + floor(random(0, 150));
     bird.returnTime = -1;
-    bird.motion = false;
+    bird.motion = true; // Start motion immediately
     bird.arrived = false;
-    bird.velocity.set(0, 0);
-    bird.applyForce(createVector(random(-20, -10), random(-5, 5)));
+    bird.velocity.set(random(-bird.maxOutSpeed, -bird.maxOutSpeed / 2), random(-2, 2)); // Consistent leftward velocity
+    bird.animation.resetFlight();
+    bird.animation.setState(`flying${bird.animation.flyingType}`); // Set flying1 or flying2
   });
 
   if (easterEggBird) {
