@@ -169,7 +169,7 @@ const trainTriggerWindows = {
   Q_north: { min: 300, max: 315 }, // Q uptown (to Canal St)
   Q_south: { min: 225, max: 240 }, // Q downtown (to Dekalb Av)
   N_north: { min: 240, max: 255 }, // N uptown (to Canal St)
-  N_south: { min: 360, max: 375 }, // N downtown (to Atlantic Av)
+  N_south: { min: 370, max: 385 }, // N downtown (to Atlantic Av)
   B_south: { min: 200, max: 210 }  // B downtown (to Dekalb Av)
 };
 
