@@ -243,18 +243,26 @@ function maybeSpawnEasterEgg() {
   const wireIndex = floor(random(0, config.flock.numWires));
   const y = margin + wireIndex * spacingY - birdHeight / 4;
 
+  // Same minimum-separation rule as regular birds (see Bird.isTooClose):
+  // tight clustering OK, exact overlap not OK.
+  const minSeparation = birdWidth * 0.25;
+  const collides = (cx) =>
+    isInMaskedBand(cx) ||
+    birds.some(
+      (b) => Math.abs(b.position.x - cx) < minSeparation && Math.abs(b.position.y - y) < birdHeight / 2,
+    );
+
   let x;
   let attempts = 0;
   do {
     x = random(0, width - margin - birdWidth);
     attempts++;
-  } while (
-    (isInMaskedBand(x) ||
-      birds.some((b) => Math.abs(b.position.x - x) < birdWidth * 0.75 && b.position.y === y)) &&
-    attempts < 50
-  );
+  } while (collides(x) && attempts < 50);
+
+  // Fallback: linear scan for the first non-colliding slot.
   if (attempts >= 50) {
-    x = birdWidth * floor(random(0, (width - margin - birdWidth) / birdWidth));
+    x = 0;
+    while (x < width - margin - birdWidth && collides(x)) x += birdWidth / 4;
   }
 
   easterEggBird = new EasterEggBird(type, x, y, wireIndex);
