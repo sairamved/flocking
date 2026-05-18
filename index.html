@@ -1,15 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <meta charset="utf-8" />
+    <title>flocking</title>
+    <link rel="stylesheet" type="text/css" href="style.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.1/p5.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.1/addons/p5.sound.min.js"></script>
-    <link rel="stylesheet" type="text/css" href="style.css">
-    <meta charset="utf-8" />
-
   </head>
   <body>
-    <main>
-    </main>
-    <script src="sketch.js"></script>
+    <main></main>
+
+    <!-- Load order matters: data → managers → entities → systems → entry. -->
+    <script src="src/config.js"></script>
+    <script src="src/animation-data.js"></script>
+    <script src="src/animation-manager.js"></script>
+    <script src="src/bird.js"></script>
+    <script src="src/easter-egg-bird.js"></script>
+    <script src="src/wires.js"></script>
+    <script src="src/mask.js"></script>
+    <script src="src/audio.js"></script>
+    <script src="src/mta.js"></script>
+    <script src="src/sketch.js"></script>
   </body>
 </html>
