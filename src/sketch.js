@@ -35,12 +35,18 @@ function preload() {
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
+  initScene();
   computeLayout();
 
+  initBorder();
   spawnFlock();
   initWireVibrations();
   initMask();
   startMtaPolling();
+
+  // Projection display — no mouse cursor, no context menu (right-click would
+  // overlay a system menu and break the visual).
+  window.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
 function draw() {
@@ -67,6 +73,8 @@ function draw() {
   }
 
   drawMask();
+  drawBorder();
+  drawSelectedWireMarker();
 }
 
 function mousePressed() {
@@ -94,6 +102,21 @@ function keyPressed() {
     toggleFlightAudioMute();
     return;
   }
+  // Edit modes (border, wire-select, bird-count) are mutually exclusive —
+  // entering one exits the others. Each consumes arrow keys only while
+  // active; otherwise arrows fall through to the mask.
+  if (handleBorderKey(key, keyCode)) {
+    if (borderEditMode) {
+      selectedWireIndex = -1;
+      birdCountEditMode = false;
+    }
+    return;
+  }
+  if (handleSceneKey(key, keyCode)) {
+    if (selectedWireIndex >= 0 || birdCountEditMode) borderEditMode = false;
+    if (birdCountEditMode && selectedWireIndex >= 0) selectedWireIndex = -1;
+    return;
+  }
   handleMaskKey(key, keyCode);
 }
 
@@ -106,7 +129,7 @@ function windowResized() {
 
   birds.forEach((bird) => {
     bird.wireIndex = constrain(bird.wireIndex, 0, config.flock.numWires - 1);
-    const newY = margin + bird.wireIndex * spacingY - birdHeight / 4;
+    const newY = birdTargetYForWire(bird.wireIndex);
     bird.originalPosition.y = newY;
     bird.position.y = newY;
     bird.targetPosition.y = newY;
@@ -120,7 +143,7 @@ function windowResized() {
 
   if (easterEggBird) {
     easterEggBird.wireIndex = constrain(easterEggBird.wireIndex, 0, config.flock.numWires - 1);
-    const newY = margin + easterEggBird.wireIndex * spacingY - birdHeight / 4;
+    const newY = birdTargetYForWire(easterEggBird.wireIndex);
     easterEggBird.position.y = newY;
     easterEggBird.targetPosition.y = newY;
     if (easterEggBird.state !== 'flying') {
@@ -135,13 +158,17 @@ function windowResized() {
   }
 }
 
-// Recompute screen-derived sizes. Called in setup() and on resize.
+// Recompute screen-derived sizes. Called in setup(), on resize, and whenever
+// the live bird-scale multiplier changes.
 function computeLayout() {
   margin = width / 10;
   const scaleFactor = windowWidth / config.flock.referenceWindowWidth;
+  const m = typeof birdScaleMultiplier === 'number' ? birdScaleMultiplier : 1;
 
-  birdWidth = max(config.flock.referenceBirdWidth * 0.5, config.flock.referenceBirdWidth * scaleFactor);
-  birdHeight = max(config.flock.referenceBirdHeight * 0.5, config.flock.referenceBirdHeight * scaleFactor);
+  const minW = config.flock.referenceBirdWidth * 0.5 * m;
+  const minH = config.flock.referenceBirdHeight * 0.5 * m;
+  birdWidth = max(minW, config.flock.referenceBirdWidth * scaleFactor * m);
+  birdHeight = max(minH, config.flock.referenceBirdHeight * scaleFactor * m);
 
   minScootDistance = config.scoot.referenceMinDistance * scaleFactor;
   maxScootDistance = config.scoot.referenceMaxDistance * scaleFactor;
@@ -168,7 +195,7 @@ function spawnFlock() {
 
   for (let j = 0; j < numWires; j++) {
     for (let i = 0; i < birdsPerWire[j]; i++) {
-      const y = margin + j * spacingY - birdHeight / 4;
+      const y = birdTargetYForWire(j);
       const x = pickSpawnXForWire(y, i);
       const frameOffset = floor(random(0, frameCounts.idle1));
       const stillnessState = assignStillnessState();
@@ -180,10 +207,12 @@ function spawnFlock() {
 }
 
 function pickSpawnXForWire(y, fallbackIndex) {
+  const xMin = birdSafeXMin();
+  const xMax = max(xMin, birdSafeXMax());
   let x;
   let attempts = 0;
   do {
-    x = random(0, width - margin - birdWidth);
+    x = random(xMin, xMax);
     attempts++;
   } while (
     (isInMaskedBand(x) ||
@@ -192,7 +221,7 @@ function pickSpawnXForWire(y, fallbackIndex) {
       )) &&
     attempts < 50
   );
-  return attempts >= 50 ? fallbackIndex * birdWidth : x;
+  return attempts >= 50 ? constrain(fallbackIndex * birdWidth, xMin, xMax) : x;
 }
 
 function handleAllBirdsGoneTransition() {
@@ -241,7 +270,7 @@ function maybeSpawnEasterEgg() {
   const types = config.easterEgg.types;
   const type = types[floor(random(0, types.length))];
   const wireIndex = floor(random(0, config.flock.numWires));
-  const y = margin + wireIndex * spacingY - birdHeight / 4;
+  const y = birdTargetYForWire(wireIndex);
 
   // Same minimum-separation rule as regular birds (see Bird.isTooClose):
   // tight clustering OK, exact overlap not OK.
@@ -252,17 +281,19 @@ function maybeSpawnEasterEgg() {
       (b) => Math.abs(b.position.x - cx) < minSeparation && Math.abs(b.position.y - y) < birdHeight / 2,
     );
 
+  const xMin = birdSafeXMin();
+  const xMax = max(xMin, birdSafeXMax());
   let x;
   let attempts = 0;
   do {
-    x = random(0, width - margin - birdWidth);
+    x = random(xMin, xMax);
     attempts++;
   } while (collides(x) && attempts < 50);
 
   // Fallback: linear scan for the first non-colliding slot.
   if (attempts >= 50) {
-    x = 0;
-    while (x < width - margin - birdWidth && collides(x)) x += birdWidth / 4;
+    x = xMin;
+    while (x < xMax && collides(x)) x += birdWidth / 4;
   }
 
   easterEggBird = new EasterEggBird(type, x, y, wireIndex);

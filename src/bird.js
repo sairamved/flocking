@@ -57,11 +57,13 @@ class Bird {
   // Pick a return-landing spot on this bird's wire that isn't too close to
   // any existing bird; fall back to the nearest open slot if we can't.
   generateNewTargetOnWire() {
-    const targetY = margin + this.wireIndex * spacingY - birdHeight / 4;
+    const targetY = birdTargetYForWire(this.wireIndex);
+    const xMin = birdSafeXMin();
+    const xMax = max(xMin, birdSafeXMax());
     let newX;
     let attempts = 0;
     do {
-      newX = random(0, width - margin - birdWidth);
+      newX = random(xMin, xMax);
       attempts++;
     } while ((isInMaskedBand(newX) || this.isTooClose(newX, targetY)) && attempts < 50);
 
@@ -91,12 +93,14 @@ class Bird {
   }
 
   findNearestAvailableSpot(y) {
-    let newX = 0;
-    while (newX < width - margin - birdWidth) {
+    const xMin = birdSafeXMin();
+    const xMax = max(xMin, birdSafeXMax());
+    let newX = xMin;
+    while (newX < xMax) {
       if (!isInMaskedBand(newX) && !this.isTooClose(newX, y)) return newX;
       newX += birdWidth / 4;
     }
-    return 0;
+    return xMin;
   }
 
   findClosestNeighbor() {
@@ -154,7 +158,12 @@ class Bird {
           candidate = this.position.x + direction * (maxScootDistance / 2);
         }
 
-        if (candidate !== null && !isInMaskedBand(candidate)) {
+        if (
+          candidate !== null &&
+          !isInMaskedBand(candidate) &&
+          candidate >= birdSafeXMin() &&
+          candidate <= birdSafeXMax()
+        ) {
           this.beginScoot(candidate);
         }
       }

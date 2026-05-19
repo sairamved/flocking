@@ -37,7 +37,7 @@ function resetWire(i) {
 
 function drawWires() {
   for (let i = 0; i < config.flock.numWires; i++) {
-    const baseY = margin + i * spacingY + birdHeight / 2.8;
+    const baseY = wireBaseY(i);
     const elapsed = frameCount - wireVibrations[i].startTime;
 
     const transitionProgress = allBirdsGone ? min((frameCount - allGoneTime) / 60, 1) : 0;

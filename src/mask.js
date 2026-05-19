@@ -90,9 +90,6 @@ function currentMaskConfig() {
     enabled: maskEnabled,
     centerXRatio: width > 0 ? maskCenterX / width : config.mask.defaultCenterXRatio,
     widthRatio: width > 0 ? maskWidth / width : 0,
-    canvasWidth: width,
-    canvasHeight: height,
-    exportedAt: new Date().toISOString(),
   };
 }
 
@@ -106,19 +103,44 @@ function applyMaskConfig(cfg) {
   maskCenterX = constrain(maskCenterX, maskWidth / 2, width - maskWidth / 2);
 }
 
+// Combined export: mask + scene adjustments + a canvas-size snapshot for
+// reference. The drop-import path accepts either this combined shape or the
+// older bare mask shape.
+function currentExportConfig() {
+  return {
+    mask: currentMaskConfig(),
+    scene: currentSceneAdjustments(),
+    border: currentBorderConfig(),
+    canvasWidth: width,
+    canvasHeight: height,
+    exportedAt: new Date().toISOString(),
+  };
+}
+
+function applyExportedConfig(cfg) {
+  if (!cfg || typeof cfg !== 'object') return;
+  if (cfg.mask) applyMaskConfig(cfg.mask);
+  if (cfg.scene) applySceneAdjustments(cfg.scene);
+  if (cfg.border) applyBorderConfig(cfg.border);
+  // Backwards compatibility: old export had mask fields at the top level.
+  if (!cfg.mask && (cfg.centerXRatio !== undefined || cfg.widthRatio !== undefined)) {
+    applyMaskConfig(cfg);
+  }
+}
+
 function exportMaskConfig() {
-  const cfg = currentMaskConfig();
+  const cfg = currentExportConfig();
   const json = JSON.stringify(cfg, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'flocking-mask.json';
+  a.download = 'flocking-scene.json';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  console.log('mask config exported:', cfg);
+  console.log('scene config exported:', cfg);
 }
 
 let maskDropInstalled = false;
@@ -136,10 +158,10 @@ function installMaskFileDrop() {
     reader.onload = () => {
       try {
         const cfg = JSON.parse(reader.result);
-        applyMaskConfig(cfg);
-        console.log('mask config loaded from dropped file:', cfg);
+        applyExportedConfig(cfg);
+        console.log('scene config loaded from dropped file:', cfg);
       } catch (err) {
-        console.warn('dropped file is not a valid mask config:', err);
+        console.warn('dropped file is not a valid scene config:', err);
       }
     };
     reader.readAsText(file);

@@ -8,14 +8,19 @@
 
 const config = {
   controls: {
-    toggleTrainData: 'T',     // manual click ⇄ MTA live-data
-    toggleMask: 'R',          // mask on/off
-    exportMask: 'E',          // download current mask config as JSON
-    maskWidthUp: 'UP',        // wider
-    maskWidthDown: 'DOWN',    // narrower
-    maskMoveLeft: 'LEFT',     // shift mask left
-    maskMoveRight: 'RIGHT',   // shift mask right
-    toggleMute: 'M',          // mute/unmute flight audio
+    toggleTrainData: 'T',     
+    toggleMask: 'R',          
+    exportMask: 'E',          
+    maskWidthUp: 'UP',        
+    maskWidthDown: 'DOWN',    
+    maskMoveLeft: 'LEFT',     
+    maskMoveRight: 'RIGHT',   
+    toggleMute: 'M',          
+    birdScaleUp: ']',         
+    birdScaleDown: '[',       
+    selectWires: ['1', '2', '3', '4', '5', '6'],
+    toggleBorderEdit: 'B',    
+    toggleBirdCountEdit: 'N', 
   },
 
   audio: {
@@ -25,11 +30,36 @@ const config = {
 
   flock: {
     numBirdsTotal: 16,
-    numWires: 4,
+    numWires: 6,
     referenceWindowWidth: 1800,
     referenceBirdWidth: 250,
     referenceBirdHeight: 250,
     flying2Percentage: 0.2,
+  },
+
+  // Live-tunable scene adjustments. Defaults below are starting values; live
+  // tweaks happen via keys and are exported into flocking-scene.json via 'E'.
+  scene: {
+    birdScaleDefault: 0.7,    // multiplier on computed birdWidth/Height
+    birdScaleMin: 0.2,
+    birdScaleMax: 2.0,
+    birdScaleStep: 0.05,
+    wireYStep: 2,             // pixels per Up/Down nudge when a wire is selected
+    wireYOffsetsDefault: [],  // per-wire vertical offsets (pixels); empty = zeros
+    birdCountMin: 1,
+    birdCountMax: 60,
+  },
+
+  // Rounded-rectangle border mask that hides wire spillover at the window
+  // edges. Toggled with the 'B' key into edit mode; in edit mode, Up/Down
+  // adjusts thickness and Left/Right adjusts inner-corner curvature.
+  border: {
+    defaultThickness: 40,     // pixels of inset from canvas edge
+    defaultCornerRadius: 60,  // inner-rect corner radius
+    thicknessStep: 5,
+    curvatureStep: 5,
+    minThickness: 0,
+    minCornerRadius: 0,
   },
 
   timing: {
