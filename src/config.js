@@ -45,17 +45,20 @@ const config = {
     birdScaleMax: 2.0,
     birdScaleStep: 0.05,
     wireYStep: 2,             // pixels per Up/Down nudge when a wire is selected
-    wireYOffsetsDefault: [],  // per-wire vertical offsets (pixels); empty = zeros
+    wireYOffsetsDefault: [30, -14, -70, -118, -164, -212], // per-wire y offsets (px)
     birdCountMin: 1,
     birdCountMax: 60,
+    birdCountDefault: 16,     // total birds at startup
   },
 
   // Rounded-rectangle border mask that hides wire spillover at the window
   // edges. Toggled with the 'B' key into edit mode; in edit mode, Up/Down
   // adjusts thickness and Left/Right adjusts inner-corner curvature.
   border: {
-    defaultThickness: 40,     // pixels of inset from canvas edge
-    defaultCornerRadius: 60,  // inner-rect corner radius
+    // Defaults expressed as ratios of canvas width so they look right across
+    // different display sizes.
+    defaultThicknessRatio: 0.0625,
+    defaultCornerRadiusRatio: 0.171875,
     thicknessStep: 5,
     curvatureStep: 5,
     minThickness: 0,
@@ -133,10 +136,10 @@ const config = {
   // localStorage; 'E' exports the current config as JSON.
   mask: {
     enabledByDefault: true,
-    defaultCenterXRatio: 0.5, // fraction of canvas width
-    defaultWidth: 50,         // pixels
-    widthStep: 10,            // pixels per Up/Down press
-    moveStep: 10,             // pixels per Left/Right press
+    defaultCenterXRatio: 0.484375,  // fraction of canvas width
+    defaultWidthRatio: 0.07291667,  // fraction of canvas width
+    widthStep: 10,                  // pixels per Up/Down press
+    moveStep: 10,                   // pixels per Left/Right press
     minWidth: 0,
     storageKey: 'flocking.mask.v1',
   },

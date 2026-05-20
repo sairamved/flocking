@@ -180,7 +180,8 @@ function computeLayout() {
 // Place birds across the four wires. At least one bird per wire; the rest are
 // distributed at random. A small percentage get the alternate "flying2" sprite.
 function spawnFlock() {
-  const { numBirdsTotal, numWires, flying2Percentage } = config.flock;
+  const { numWires, flying2Percentage } = config.flock;
+  const numBirdsTotal = config.scene.birdCountDefault ?? config.flock.numBirdsTotal;
   const birdsPerWire = Array(numWires).fill(1);
 
   let remaining = numBirdsTotal - numWires;

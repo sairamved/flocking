@@ -17,8 +17,8 @@ let borderCornerRadius = 0;
 let borderEditMode = false;
 
 function initBorder() {
-  borderThickness = config.border.defaultThickness;
-  borderCornerRadius = config.border.defaultCornerRadius;
+  borderThickness = config.border.defaultThicknessRatio * width;
+  borderCornerRadius = config.border.defaultCornerRadiusRatio * width;
 }
 
 // Draw the frame: outer canvas rect with a rounded inner rect punched out.

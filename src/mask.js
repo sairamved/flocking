@@ -20,7 +20,7 @@ let maskWidth;
 function initMask() {
   maskEnabled = config.mask.enabledByDefault;
   maskCenterX = config.mask.defaultCenterXRatio * width;
-  maskWidth = config.mask.defaultWidth;
+  maskWidth = config.mask.defaultWidthRatio * width;
   installMaskFileDrop();
 }
 
