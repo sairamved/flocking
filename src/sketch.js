@@ -201,7 +201,7 @@ function spawnFlock() {
       const frameOffset = floor(random(0, frameCounts.idle1));
       const stillnessState = assignStillnessState();
       const flyingType = flying2Assigned < flying2Target ? 2 : 1;
-      birds.push(new Bird(x, y, frameOffset, stillnessState, flyingType));
+      birds.push(new Bird(x, y, frameOffset, stillnessState, flyingType, j));
       if (flyingType === 2) flying2Assigned++;
     }
   }

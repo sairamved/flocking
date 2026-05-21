@@ -3,7 +3,7 @@
 // when to take flight and when to return.
 
 class Bird {
-  constructor(x, y, frameOffset, stillnessState, flyingType) {
+  constructor(x, y, frameOffset, stillnessState, flyingType, wireIndex) {
     this.originalPosition = createVector(x, y);
     this.position = createVector(x, y);
     this.targetPosition = createVector(x, y);
@@ -31,7 +31,13 @@ class Bird {
     this.hasHoppedFirst = false;
     this.hasHoppedSecond = false;
 
-    this.wireIndex = Math.round((y - margin + birdHeight / 4) / spacingY);
+    // Prefer the explicit wireIndex (the caller already knows which wire it
+    // intended). Fall back to back-computing from y for legacy call sites,
+    // but the back-computation breaks once per-wire y-offsets are applied.
+    this.wireIndex =
+      typeof wireIndex === 'number'
+        ? wireIndex
+        : Math.round((y - margin + birdHeight / 4) / spacingY);
   }
 
   applyForce(force) {

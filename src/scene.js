@@ -100,7 +100,7 @@ function addOneBird() {
   const frameOffset = floor(random(0, frameCounts.idle1));
   const stillnessState = assignStillnessState();
   const flyingType = random() < config.flock.flying2Percentage ? 2 : 1;
-  birds.push(new Bird(x, y, frameOffset, stillnessState, flyingType));
+  birds.push(new Bird(x, y, frameOffset, stillnessState, flyingType, wireIndex));
   return true;
 }
 
